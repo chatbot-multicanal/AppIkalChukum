@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("VENDEDOR") // ADMIN, GERENTE, VENDEDOR
+  password  String   // hashed
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes      Quote[]
+  commissions Commission[]
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  address   String?
+  city      String
+  country   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes Quote[]
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  country   String
+  timezone  String   @default("America/Mexico_City")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory Inventory[]
+  quotes    Quote[]
+  orders    Order[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  color       String?
+  basePrice   Float
+  costPrice   Float?   // Only visible to admin/gerente
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inventory  Inventory[]
+  quoteItems QuoteItem[]
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  warehouseId String
+  productId   String
+  quantity    Float    @default(0) // Soporte para decimales (ej: 2.5 sacos)
+  updatedAt   DateTime @updatedAt
+
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@unique([warehouseId, productId])
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  quoteNumber String      @unique // Ej: IkalChukum - COT - YYYY-MM-DD - NombreCliente - 000123
+  clientId    String
+  userId      String
+  status      String      @default("DRAFT") // DRAFT, SENT, APPROVED, REJECTED
+
+  currency     String @default("MXN") // MXN, USD, etc.
+  exchangeRate Float  @default(1.0)
+
+  subtotal Float
+  tax      Float
+  total    Float
+
+  pdfUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  user       User        @relation(fields: [userId], references: [id])
+  warehouseId String?
+  warehouse   Warehouse?  @relation(fields: [warehouseId], references: [id])
+  items      QuoteItem[]
+  order      Order?
+  commission Commission?
+}
+
+model QuoteItem {
+  id        String @id @default(cuid())
+  quoteId   String
+  productId String
+  quantity  Float
+  unitPrice Float
+  total     Float
+
+  quote   Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  quoteId             String      @unique
+  warehouseId         String?     // Bodega surtidora
+  status              String      @default("PENDING") // PENDING, PREPARING, SHIPPED, DELIVERED, CANCELLED
+  scheduledDeliveryAt DateTime?
+  deliveredAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote     Quote      @relation(fields: [quoteId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+}
+
+model Commission {
+  id            String           @id @default(cuid())
+  quoteId       String           @unique
+  userId        String
+  amount        Float
+  status        String           @default("PENDING") // PENDING, SCHEDULED, PAID, CANCELLED
+  scheduledDate DateTime?        // 15 days after scheduled delivery
+  paidDate      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote Quote @relation(fields: [quoteId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String   // 'Quote', 'Order', 'Product'
+  entityId  String
+  action    String   // 'CREATE', 'UPDATE', 'DELETE'
+  userId    String?
+  details   String?  // JSON stringified
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+

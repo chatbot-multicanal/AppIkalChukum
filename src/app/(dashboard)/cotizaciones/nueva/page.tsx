@@ -1,0 +1,649 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface Warehouse {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  currency: string;
+}
+
+interface ProductInventory {
+  id: string;
+  warehouseId: string;
+  productId: string;
+  quantity: number;
+}
+
+interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  basePrice: number;
+  inventory: ProductInventory[];
+}
+
+interface Client {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+}
+
+interface QuoteItemInput {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  stockAvailable: number;
+}
+
+export default function NuevaCotizacionPage() {
+  const router = useRouter();
+  
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // DB Lists
+  const [clients, setClients] = useState<Client[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // Form State
+  const [clientId, setClientId] = useState("");
+  const [warehouseId, setWarehouseId] = useState("");
+  const [currency, setCurrency] = useState("MXN");
+  const [exchangeRate, setExchangeRate] = useState(1.0);
+  const [items, setItems] = useState<QuoteItemInput[]>([
+    { productId: "", quantity: 1, unitPrice: 0, stockAvailable: 0 }
+  ]);
+
+  // Modal State for New Client
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientCity, setNewClientCity] = useState("");
+  const [newClientCountry, setNewClientCountry] = useState("México");
+  const [newClientContact, setNewClientContact] = useState("");
+  const [newClientAddress, setNewClientAddress] = useState("");
+
+  // Load configuration from API on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [clientsRes, configRes] = await Promise.all([
+          fetch("/api/clientes"),
+          fetch("/api/inventario/config")
+        ]);
+
+        const clientsData = await clientsRes.json();
+        const { warehouses: whsData, products: prodsData } = await configRes.json();
+
+        setClients(clientsData);
+        setWarehouses(whsData);
+        setProducts(prodsData);
+
+        if (whsData.length > 0) {
+          setWarehouseId(whsData[0].id);
+        }
+      } catch (err) {
+        console.error("Error al cargar configuración:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Update product details when selected in a row
+  const handleProductChange = (index: number, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    // Get stock in current selected warehouse
+    const inv = product.inventory.find(i => i.warehouseId === warehouseId);
+    const stockAvailable = inv ? inv.quantity : 0;
+
+    setItems(prev => prev.map((item, idx) => {
+      if (idx === index) {
+        return {
+          ...item,
+          productId,
+          unitPrice: product.basePrice,
+          stockAvailable
+        };
+      }
+      return item;
+    }));
+  };
+
+  const handleItemFieldChange = (index: number, field: keyof QuoteItemInput, value: number) => {
+    setItems(prev => prev.map((item, idx) => {
+      if (idx === index) {
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
+  };
+
+  const addItemRow = () => {
+    setItems(prev => [...prev, { productId: "", quantity: 1, unitPrice: 0, stockAvailable: 0 }]);
+  };
+
+  const removeItemRow = (index: number) => {
+    if (items.length === 1) return;
+    setItems(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  // Trigger recalculations of stock when warehouse changes
+  useEffect(() => {
+    if (!warehouseId) return;
+    setItems(prev => prev.map(item => {
+      if (!item.productId) return item;
+      const product = products.find(p => p.id === item.productId);
+      const inv = product?.inventory.find(i => i.warehouseId === warehouseId);
+      return {
+        ...item,
+        stockAvailable: inv ? inv.quantity : 0
+      };
+    }));
+
+    // Auto update currency based on warehouse country default
+    const wh = warehouses.find(w => w.id === warehouseId);
+    if (wh) {
+      if (wh.country === "Estados Unidos") {
+        setCurrency("USD");
+      } else {
+        setCurrency("MXN");
+      }
+    }
+  }, [warehouseId, warehouses, products]);
+
+  // Create Client from Modal
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName || !newClientCity || !newClientCountry) {
+      alert("Por favor completa los campos obligatorios del cliente");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newClientName,
+          contact: newClientContact,
+          email: newClientEmail,
+          phone: newClientPhone,
+          address: newClientAddress,
+          city: newClientCity,
+          country: newClientCountry
+        })
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+
+      // Add to clients list and automatically select it
+      setClients(prev => [...prev, result.client]);
+      setClientId(result.client.id);
+      
+      // Reset Modal Form
+      setNewClientName("");
+      setNewClientEmail("");
+      setNewClientPhone("");
+      setNewClientCity("");
+      setNewClientContact("");
+      setNewClientAddress("");
+      setIsClientModalOpen(false);
+
+      alert("Cliente creado y seleccionado automáticamente.");
+    } catch (err: any) {
+      alert(`Error al crear cliente: ${err.message}`);
+    }
+  };
+
+  // Calculations
+  const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
+  const tax = subtotal * 0.16;
+  const total = subtotal + tax;
+
+  // Submit Quote Creation
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validations
+    if (!clientId) return alert("Selecciona un cliente");
+    if (!warehouseId) return alert("Selecciona una bodega");
+    
+    const invalidItems = items.filter(it => !it.productId || it.quantity <= 0 || it.unitPrice <= 0);
+    if (invalidItems.length > 0) {
+      return alert("Por favor completa todos los productos con cantidades y precios válidos.");
+    }
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch("/api/cotizaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          warehouseId,
+          currency,
+          exchangeRate,
+          items: items.map(it => ({
+            productId: it.productId,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice
+          }))
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al crear la cotización");
+      }
+
+      alert("Cotización creada exitosamente como borrador.");
+      router.push("/cotizaciones");
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="main-content" style={{ color: "white" }}>Cargando datos del ERP...</div>;
+  }
+
+  return (
+    <main className="main-content animate-fade-in" style={{ position: "relative" }}>
+      
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+        <div>
+          <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
+            Nueva Cotización
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 500 }}>
+            Configura el cliente, bodega y productos para generar la cotización comercial.
+          </p>
+        </div>
+        <Link href="/cotizaciones">
+          <button className="btn-premium btn-secondary-sage" style={{ fontSize: "0.9rem" }}>
+            Volver a Cotizaciones
+          </button>
+        </Link>
+      </div>
+
+      {/* Main Quote Creation Form */}
+      <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
+        
+        {/* Left Side: General & Products */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+          
+          {/* General Config Card */}
+          <div className="glass-card" style={{ padding: "30px", display: "flex", flexDirection: "column", gap: "24px" }}>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "white", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px" }}>
+              1. Datos de Operación
+            </h2>
+            
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              
+              {/* Client Selection */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                  Cliente *
+                </label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <select 
+                    value={clientId} 
+                    onChange={(e) => setClientId(e.target.value)}
+                    required
+                    style={{ flex: 1, padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                  >
+                    <option value="" style={{ background: "#0c0f17" }}>-- Selecciona un cliente --</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id} style={{ background: "#0c0f17" }}>{c.name} ({c.city}, {c.country})</option>
+                    ))}
+                  </select>
+                  <button 
+                    type="button"
+                    onClick={() => setIsClientModalOpen(true)}
+                    className="btn-premium btn-secondary-sage"
+                    style={{ padding: "12px", borderRadius: "10px", width: "45px", height: "45px", minWidth: "auto" }}
+                    title="Nuevo cliente"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Warehouse Selection */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                  Bodega de Despacho *
+                </label>
+                <select 
+                  value={warehouseId} 
+                  onChange={(e) => setWarehouseId(e.target.value)}
+                  required
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                >
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id} style={{ background: "#0c0f17" }}>{w.name} ({w.city})</option>
+                  ))}
+                </select>
+              </div>
+
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+              
+              {/* Currency Selection */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                  Moneda de la Cotización *
+                </label>
+                <select 
+                  value={currency} 
+                  onChange={(e) => setCurrency(e.target.value)}
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                >
+                  <option value="MXN" style={{ background: "#0c0f17" }}>MXN (Pesos Mexicanos)</option>
+                  <option value="USD" style={{ background: "#0c0f17" }}>USD (Dólares Americanos)</option>
+                </select>
+              </div>
+
+              {/* Exchange Rate (Required if MXN Warehouse & USD Quote) */}
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                  Tipo de Cambio (MXN por USD)
+                </label>
+                <input 
+                  type="number"
+                  step="0.0001"
+                  min="0.0001"
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(parseFloat(e.target.value) || 1.0)}
+                  disabled={currency === "MXN" && warehouses.find(w => w.id === warehouseId)?.country === "México"}
+                  style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                />
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Products List Card */}
+          <div className="glass-card" style={{ padding: "30px", display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px" }}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "white" }}>
+                2. Productos a Cotizar
+              </h2>
+              <button 
+                type="button" 
+                onClick={addItemRow} 
+                className="btn-premium btn-secondary-sage"
+                style={{ padding: "8px 16px", fontSize: "0.8rem", borderRadius: "8px" }}
+              >
+                + Agregar Fila
+              </button>
+            </div>
+
+            {/* Products Inputs */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {items.map((item, idx) => {
+                const isOverStock = item.productId && item.quantity > item.stockAvailable;
+
+                return (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", borderBottom: idx < items.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", paddingBottom: idx < items.length - 1 ? "16px" : "0" }}>
+                    <div style={{ display: "flex", gap: "16px", alignItems: "flex-end" }}>
+                      
+                      {/* Select Product */}
+                      <div style={{ flex: 2 }}>
+                        <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px" }}>
+                          Producto (Kit de Chukum)
+                        </label>
+                        <select 
+                          value={item.productId}
+                          onChange={(e) => handleProductChange(idx, e.target.value)}
+                          required
+                          style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                        >
+                          <option value="" style={{ background: "#0c0f17" }}>-- Selecciona un kit --</option>
+                          {products.map(p => (
+                            <option key={p.id} value={p.id} style={{ background: "#0c0f17" }}>{p.name} ({p.sku})</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Quantity */}
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px" }}>
+                          Cantidad (Sacos)
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          value={item.quantity}
+                          onChange={(e) => handleItemFieldChange(idx, "quantity", parseFloat(e.target.value) || 0)}
+                          required
+                          style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                        />
+                      </div>
+
+                      {/* Price (Editable) */}
+                      <div style={{ flex: 1.2 }}>
+                        <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px" }}>
+                          Precio Unit. ({currency})
+                        </label>
+                        <input 
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) => handleItemFieldChange(idx, "unitPrice", parseFloat(e.target.value) || 0)}
+                          required
+                          style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                        />
+                      </div>
+
+                      {/* Row Total */}
+                      <div style={{ width: "120px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Total</span>
+                        <div style={{ padding: "12px 0", color: "#ffffff", fontWeight: 700, fontSize: "0.95rem" }}>
+                          ${(item.quantity * item.unitPrice).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </div>
+                      </div>
+
+                      {/* Remove Row Button */}
+                      <button 
+                        type="button" 
+                        onClick={() => removeItemRow(idx)}
+                        disabled={items.length === 1}
+                        style={{ background: "none", border: "none", color: "#ef4444", cursor: items.length === 1 ? "not-allowed" : "pointer", paddingBottom: "12px", opacity: items.length === 1 ? 0.3 : 1 }}
+                      >
+                        🗑
+                      </button>
+
+                    </div>
+
+                    {/* Stock indicator and Warning */}
+                    {item.productId && (
+                      <div style={{ display: "flex", gap: "10px", fontSize: "0.8rem", paddingLeft: "4px", marginTop: "2px" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>
+                          Stock disponible en esta bodega: <strong>{item.stockAvailable.toFixed(1)} sacos</strong>
+                        </span>
+                        {isOverStock && (
+                          <span style={{ color: "#ff9f43", fontWeight: 600 }}>
+                            ⚠ Warning: Cantidad mayor al stock actual.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Right Side: Totals Summary & Submit */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          
+          <div className="glass-card" style={{ padding: "30px", display: "flex", flexDirection: "column", gap: "24px" }}>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "white", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px" }}>
+              Resumen
+            </h2>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Subtotal:</span>
+                <span style={{ fontWeight: 600 }}>${subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
+                <span style={{ color: "var(--text-secondary)" }}>IVA (16%):</span>
+                <span style={{ fontWeight: 600 }}>${tax.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.2rem", borderTop: "1px solid var(--border-color)", paddingTop: "16px", color: "white", fontWeight: 800 }}>
+                <span>Total:</span>
+                <span style={{ color: "var(--primary-sage)" }}>${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+              </div>
+            </div>
+
+            {/* Submit Actions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="btn-premium btn-primary-teal" 
+                style={{ width: "100%", padding: "14px" }}
+              >
+                {submitting ? "Creando..." : "Guardar Borrador"}
+              </button>
+              
+              <Link href="/cotizaciones" style={{ textDecoration: "none" }}>
+                <button type="button" className="btn-premium btn-secondary-sage" style={{ width: "100%", padding: "12px" }}>
+                  Cancelar
+                </button>
+              </Link>
+            </div>
+
+          </div>
+
+        </div>
+
+      </form>
+
+      {/* MODAL: Nuevo Cliente Inline */}
+      {isClientModalOpen && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="glass-card animate-fade-in" style={{ width: "500px", padding: "30px", background: "var(--bg-sidebar)", borderColor: "var(--border-color-hover)" }}>
+            <h3 style={{ fontSize: "1.25rem", color: "white", marginBottom: "20px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+              <span>Agregar Nuevo Cliente</span>
+              <button onClick={() => setIsClientModalOpen(false)} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "1.2rem" }}>×</button>
+            </h3>
+
+            <form onSubmit={handleCreateClient} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Nombre de Empresa / Cliente *</label>
+                <input 
+                  type="text" 
+                  value={newClientName} 
+                  onChange={(e) => setNewClientName(e.target.value)} 
+                  required
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Contacto</label>
+                  <input 
+                    type="text" 
+                    value={newClientContact} 
+                    onChange={(e) => setNewClientContact(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Teléfono</label>
+                  <input 
+                    type="text" 
+                    value={newClientPhone} 
+                    onChange={(e) => setNewClientPhone(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Correo Electrónico</label>
+                <input 
+                  type="email" 
+                  value={newClientEmail} 
+                  onChange={(e) => setNewClientEmail(e.target.value)} 
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Ciudad *</label>
+                  <input 
+                    type="text" 
+                    value={newClientCity} 
+                    onChange={(e) => setNewClientCity(e.target.value)} 
+                    required
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>País *</label>
+                  <select 
+                    value={newClientCountry} 
+                    onChange={(e) => setNewClientCountry(e.target.value)} 
+                    required
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  >
+                    <option value="México" style={{ background: "#0c0f17" }}>México</option>
+                    <option value="Estados Unidos" style={{ background: "#0c0f17" }}>Estados Unidos</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Dirección</label>
+                <input 
+                  type="text" 
+                  value={newClientAddress} 
+                  onChange={(e) => setNewClientAddress(e.target.value)} 
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
+                <button type="submit" className="btn-premium btn-primary-teal" style={{ flex: 1, padding: "10px" }}>Guardar Cliente</button>
+                <button type="button" onClick={() => setIsClientModalOpen(false)} className="btn-premium btn-secondary-sage" style={{ flex: 1, padding: "10px" }}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </main>
+  );
+}
