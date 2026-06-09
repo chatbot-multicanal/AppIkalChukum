@@ -2,123 +2,169 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-
-export interface CreateProductInput {
-  sku: string;
-  name: string;
-  description?: string;
-  color?: string;
-  basePrice: number;
-  costPrice?: number;
-  initialStocks: Record<string, number>; // Record<warehouseId, quantity>
-}
+import { cookies } from "next/headers";
 
 /**
- * Fetches all warehouses and all products with their stock levels.
+ * Adjusts the stock of a product in a warehouse manually, validating permissions and logging to the AuditLog.
  */
-export async function getInventoryData() {
+export async function adjustStockAction(
+  warehouseId: string,
+  productId: string,
+  quantityAdjustment: number,
+  reason: string
+) {
   try {
-    const warehouses = await db.warehouse.findMany({
-      orderBy: { createdAt: "asc" },
+    // 1. Validar rol del usuario (Solo ADMIN o GERENTE pueden ajustar inventario)
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get("user_role")?.value;
+
+    if (userRole !== "ADMIN" && userRole !== "GERENTE") {
+      throw new Error("No autorizado. Solo administradores o gerentes pueden ajustar inventario.");
+    }
+
+    if (isNaN(quantityAdjustment) || quantityAdjustment === 0) {
+      throw new Error("El ajuste debe ser una cantidad numérica diferente de cero.");
+    }
+
+    // 2. Ejecutar ajuste en transacción
+    const result = await db.$transaction(async (tx) => {
+      // Obtener registro actual
+      const inv = await tx.inventory.findUnique({
+        where: {
+          warehouseId_productId: {
+            warehouseId,
+            productId,
+          },
+        },
+        include: {
+          product: true,
+          warehouse: true,
+        },
+      });
+
+      if (!inv) {
+        throw new Error("El registro de inventario no existe.");
+      }
+
+      const newQty = inv.quantity + quantityAdjustment;
+      if (newQty < 0) {
+        throw new Error(`Ajuste inválido. El stock restante no puede ser menor a cero (Stock actual: ${inv.quantity}, Ajuste: ${quantityAdjustment}).`);
+      }
+
+      // Actualizar cantidad
+      const updated = await tx.inventory.update({
+        where: {
+          warehouseId_productId: {
+            warehouseId,
+            productId,
+          },
+        },
+        data: {
+          quantity: newQty,
+        },
+      });
+
+      // Crear log de auditoría
+      await tx.auditLog.create({
+        data: {
+          entity: "Inventory",
+          entityId: productId,
+          action: "ADJUST_STOCK",
+          details: JSON.stringify({
+            message: `Ajuste manual de stock en ${inv.warehouse.name}: ${quantityAdjustment >= 0 ? "+" : ""}${quantityAdjustment} sacos de ${inv.product.name}.`,
+            warehouseId,
+            warehouseName: inv.warehouse.name,
+            productId,
+            productName: inv.product.name,
+            productSku: inv.product.sku,
+            adjustment: quantityAdjustment,
+            previousQuantity: inv.quantity,
+            newQuantity: newQty,
+            reason: reason || "Ajuste manual",
+          }),
+        },
+      });
+
+      return updated;
     });
 
-    const products = await db.product.findMany({
-      include: {
-        inventory: true,
-      },
-      orderBy: { name: "asc" },
-    });
+    // 3. Revalidar caches de Next.js
+    revalidatePath("/inventario");
+    revalidatePath("/");
 
     return {
       success: true,
-      warehouses,
-      products,
+      inventory: result,
     };
   } catch (error: any) {
-    console.error("Error in getInventoryData:", error);
+    console.error("Error in adjustStockAction:", error);
     return {
       success: false,
-      error: error.message || "Error al obtener datos de inventario",
-      warehouses: [],
-      products: [],
+      error: error.message || "Error al ajustar el inventario.",
     };
   }
 }
 
 /**
- * Registers a new product and initializes its stock across all existing warehouses.
+ * Fetches the audit history log for a specific product and warehouse.
  */
-export async function createProductAction(data: CreateProductInput) {
+export async function getInventoryHistoryAction(warehouseId: string, productId: string) {
   try {
-    // 1. Validaciones
-    if (!data.sku || !data.name || data.basePrice <= 0) {
-      throw new Error("El SKU, nombre y precio base son obligatorios y deben ser válidos.");
+    // 1. Obtener la bodega y el producto para comparar por nombre/id en logs
+    const warehouse = await db.warehouse.findUnique({
+      where: { id: warehouseId },
+    });
+    if (!warehouse) {
+      throw new Error("La bodega seleccionada no existe.");
     }
 
-    // Comprobar si ya existe el SKU
-    const existingProduct = await db.product.findUnique({
-      where: { sku: data.sku },
+    // 2. Obtener los logs de la entidad Inventory para este producto
+    const logs = await db.auditLog.findMany({
+      where: {
+        entity: "Inventory",
+        entityId: productId,
+      },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (existingProduct) {
-      throw new Error(`Ya existe un producto registrado con el SKU "${data.sku}".`);
-    }
+    // 3. Filtrar logs que involucren a esta bodega (ajustes directos o transferencias origen/destino)
+    const history = logs
+      .map((log) => {
+        try {
+          const details = JSON.parse(log.details || "{}");
+          
+          const isAdjustmentForThisWarehouse = 
+            log.action === "ADJUST_STOCK" && details.warehouseId === warehouseId;
+          
+          const isTransferInvolvingThisWarehouse = 
+            log.action === "UPDATE" && 
+            (details.originWarehouse === warehouse.name || details.destinationWarehouse === warehouse.name);
 
-    // 2. Obtener todas las bodegas de la base de datos para asegurar integridad
-    const warehouses = await db.warehouse.findMany();
-
-    // 3. Crear el producto e inicializar inventarios en una transacción
-    await db.$transaction(async (tx) => {
-      const product = await tx.product.create({
-        data: {
-          sku: data.sku,
-          name: data.name,
-          description: data.description || null,
-          color: data.color || null,
-          basePrice: data.basePrice,
-          costPrice: data.costPrice || null,
-          active: true,
-        },
-      });
-
-      // Crear el registro de inventario para cada bodega
-      for (const wh of warehouses) {
-        const qty = data.initialStocks[wh.id] || 0;
-        await tx.inventory.create({
-          data: {
-            warehouseId: wh.id,
-            productId: product.id,
-            quantity: qty,
-          },
-        });
-      }
-
-      // 4. Crear log de auditoría
-      await tx.auditLog.create({
-        data: {
-          entity: "Product",
-          entityId: product.id,
-          action: "CREATE",
-          details: JSON.stringify({
-            sku: product.sku,
-            name: product.name,
-            initialStocks: data.initialStocks,
-          }),
-        },
-      });
-    });
-
-    // 5. Revalidar la vista de inventario
-    revalidatePath("/inventario");
+          if (isAdjustmentForThisWarehouse || isTransferInvolvingThisWarehouse) {
+            return {
+              id: log.id,
+              action: log.action,
+              createdAt: log.createdAt,
+              details,
+            };
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      })
+      .filter((h) => h !== null);
 
     return {
       success: true,
+      history,
     };
   } catch (error: any) {
-    console.error("Error in createProductAction:", error);
+    console.error("Error in getInventoryHistoryAction:", error);
     return {
       success: false,
-      error: error.message || "Error interno al registrar el producto.",
+      error: error.message || "Error al obtener historial de inventario.",
+      history: [],
     };
   }
 }

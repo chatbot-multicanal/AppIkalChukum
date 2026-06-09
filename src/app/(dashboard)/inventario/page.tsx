@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import InventoryModals from "./InventoryModals";
+import InventoryTable from "./InventoryTable";
 
 interface SearchParams {
   bodega?: string;
@@ -52,9 +53,6 @@ export default async function InventarioPage({
   });
 
   const allInventory = await db.inventory.findMany();
-
-  // Umbral de stock bajo
-  const LOW_STOCK_THRESHOLD = 15.0;
 
   return (
     <main className="main-content animate-fade-in">
@@ -110,85 +108,13 @@ export default async function InventarioPage({
       </div>
 
       {/* Stock List (Real SQLite Data) */}
-      <div className="glass-card" style={{ padding: '32px' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '24px' }}>
-          Stock de Kits en {selectedWh.name}
-        </h2>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table className="premium-table">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th>Código SKU</th>
-                <th>Bodega</th>
-                {showCost && <th>Costo Compra</th>}
-                <th>Precio Base</th>
-                <th>Cantidad (Kits)</th>
-                <th>Estado</th>
-                {isAdmin && <th style={{ textAlign: 'right' }}>Acciones</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {inventoryItems.length === 0 ? (
-                <tr>
-                  <td colSpan={6 + (showCost ? 1 : 0) + (isAdmin ? 1 : 0)} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                    No hay inventario registrado en esta bodega.
-                  </td>
-                </tr>
-              ) : (
-                inventoryItems.map((item) => {
-                  const isLowStock = item.quantity < LOW_STOCK_THRESHOLD;
-                  return (
-                    <tr key={item.id}>
-                      <td>
-                        <div style={{ fontWeight: 700, color: '#ffffff' }}>
-                          {item.product.name}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          Color: {item.product.color}
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
-                          {item.product.sku}
-                        </span>
-                      </td>
-                      <td>{selectedWh.name}</td>
-                      {showCost && (
-                        <td style={{ color: "var(--text-secondary)" }}>
-                          ${item.product.costPrice?.toLocaleString("es-MX", { minimumFractionDigits: 2 }) || "-"} {selectedWh.country === "Estados Unidos" ? "USD" : "MXN"}
-                        </td>
-                      )}
-                      <td>
-                        ${item.product.basePrice.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {selectedWh.country === "Estados Unidos" ? "USD" : "MXN"}
-                      </td>
-                      <td style={{ fontWeight: 700, fontSize: '1.05rem', color: isLowStock && item.quantity > 0 ? '#ff9f43' : item.quantity === 0 ? '#ef4444' : '#ffffff' }}>
-                        {item.quantity.toFixed(1)}
-                      </td>
-                      <td>
-                        {item.quantity === 0 ? (
-                          <span className="badge badge-cancelled">Agotado</span>
-                        ) : isLowStock ? (
-                          <span className="badge badge-pending">Stock Bajo</span>
-                        ) : (
-                          <span className="badge badge-approved">Suficiente</span>
-                        )}
-                      </td>
-                      {isAdmin && (
-                        <td style={{ textAlign: 'right' }}>
-                          <button style={{ background: 'none', border: 'none', color: 'var(--primary-teal)', cursor: 'pointer', fontWeight: 600, marginRight: '12px' }}>Ajustar</button>
-                          <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>Historial</button>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <InventoryTable 
+        initialItems={inventoryItems} 
+        warehouseId={selectedWh.id} 
+        warehouseName={selectedWh.name} 
+        showCost={showCost} 
+        isAdmin={isAdmin} 
+      />
     </main>
   );
 }

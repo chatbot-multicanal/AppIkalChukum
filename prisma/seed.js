@@ -1,11 +1,15 @@
+require('dotenv').config();
 const { PrismaClient } = require("@prisma/client");
-const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { Pool } = require("pg");
 
-const adapter = new PrismaBetterSqlite3({ url: "file:dev.db" });
+const connectionString = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  console.log("Iniciando seed de base de datos con SQLite...");
+  console.log("Iniciando seed de base de datos con PostgreSQL (Supabase)...");
 
   // 1. Limpiar base de datos para evitar duplicados
   await prisma.systemSetting.deleteMany();
@@ -231,4 +235,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });
