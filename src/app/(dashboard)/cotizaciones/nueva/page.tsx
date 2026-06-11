@@ -269,7 +269,7 @@ export default function NuevaCotizacionPage() {
     <main className="main-content animate-fade-in" style={{ position: "relative" }}>
       
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
             Nueva Cotización
@@ -278,15 +278,17 @@ export default function NuevaCotizacionPage() {
             Configura el cliente, bodega y productos para generar la cotización comercial.
           </p>
         </div>
-        <Link href="/cotizaciones">
-          <button className="btn-premium btn-secondary-sage" style={{ fontSize: "0.9rem" }}>
-            Volver a Cotizaciones
-          </button>
-        </Link>
+        <div className="page-header-actions">
+          <Link href="/cotizaciones">
+            <button className="btn-premium btn-secondary-sage" style={{ fontSize: "0.9rem" }}>
+              Volver a Cotizaciones
+            </button>
+          </Link>
+        </div>
       </div>
 
       {/* Main Quote Creation Form */}
-      <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
+      <form onSubmit={handleSubmit} className="quote-form-layout">
         
         {/* Left Side: General & Products */}
         <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
@@ -297,7 +299,7 @@ export default function NuevaCotizacionPage() {
               1. Datos de Operación
             </h2>
             
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div className="grid-2-col">
               
               {/* Client Selection */}
               <div>
@@ -347,7 +349,7 @@ export default function NuevaCotizacionPage() {
 
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <div className="grid-2-col">
               
               {/* Currency Selection */}
               <div>
@@ -407,7 +409,7 @@ export default function NuevaCotizacionPage() {
 
                 return (
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", borderBottom: idx < items.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", paddingBottom: idx < items.length - 1 ? "16px" : "0" }}>
-                    <div style={{ display: "flex", gap: "16px", alignItems: "flex-end" }}>
+                    <div className="product-item-row">
                       
                       {/* Select Product */}
                       <div style={{ flex: 2 }}>

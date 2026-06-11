@@ -114,19 +114,21 @@ export default function CommissionsView({
   return (
     <div>
       {/* Page Title */}
-      <div style={{ marginBottom: "40px" }}>
-        <h1 style={{ fontSize: "2.4rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.5px", marginBottom: "6px" }}>
-          Control de Comisiones
-        </h1>
-        <p style={{ color: "var(--text-secondary)", fontSize: "1.05rem", fontWeight: 500 }}>
-          {isVendor 
-            ? "Monitorea tus ganancias por ventas entregadas y el estado de tus pagos." 
-            : "Administra y audita las comisiones de los vendedores y configura los parámetros de cálculo."}
-        </p>
+      <div className="page-header" style={{ display: "block" }}>
+        <div>
+          <h1 style={{ fontSize: "2.4rem", fontWeight: 800, color: "var(--text-main)", letterSpacing: "-0.5px", marginBottom: "6px" }}>
+            Control de Comisiones
+          </h1>
+          <p style={{ color: "var(--text-secondary)", fontSize: "1.05rem", fontWeight: 500 }}>
+            {isVendor 
+              ? "Monitorea tus ganancias por ventas entregadas y el estado de tus pagos." 
+              : "Administra y audita las comisiones de los vendedores y configura los parámetros de cálculo."}
+          </p>
+        </div>
       </div>
 
       {/* Grid: Stats & Configuration (if Admin) */}
-      <div style={{ display: "grid", gridTemplateColumns: isAdmin ? "3fr 2fr" : "1fr", gap: "32px", marginBottom: "40px" }}>
+      <div className="dashboard-grid" style={{ gridTemplateColumns: isAdmin ? "3fr 2fr" : "1fr", marginBottom: "40px" }}>
         
         {/* KPI Row */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px" }}>

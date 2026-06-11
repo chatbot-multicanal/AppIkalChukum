@@ -81,7 +81,7 @@ export default async function InventarioPage({
 
   return (
     <main className="main-content animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
             Control de Inventario
@@ -91,11 +91,13 @@ export default async function InventarioPage({
           </p>
         </div>
         {isAdmin && (
-          <InventoryModals 
-            warehouses={warehouses} 
-            products={products} 
-            inventoryItems={allInventory} 
-          />
+          <div className="page-header-actions">
+            <InventoryModals 
+              warehouses={warehouses} 
+              products={products} 
+              inventoryItems={allInventory} 
+            />
+          </div>
         )}
       </div>
 

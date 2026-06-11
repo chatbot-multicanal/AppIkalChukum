@@ -172,7 +172,7 @@ export default function InventoryModals({
   return (
     <>
       {/* Botones disparadores (Tema premium) */}
-      <div style={{ display: "flex", gap: "12px" }}>
+      <div className="page-header-actions">
         <button 
           onClick={() => setShowTransferModal(true)}
           className="btn-premium btn-secondary-sage"
@@ -191,7 +191,7 @@ export default function InventoryModals({
       {/* MODAL 1: NUEVO PRODUCTO */}
       {showProductModal && (
         <div style={modalBackdropStyle} onClick={() => setShowProductModal(false)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <h2 style={{ fontSize: "1.35rem", fontWeight: 700 }}>📦 Nuevo Producto en Catálogo</h2>
               <button onClick={() => setShowProductModal(false)} style={closeButtonStyle}>×</button>
@@ -213,7 +213,7 @@ export default function InventoryModals({
                 />
               </div>
 
-              <div style={rowStyle}>
+              <div className="modal-row">
                 <div style={{ ...inputGroupStyle, flex: 1 }}>
                   <label style={labelStyle}>Código SKU *</label>
                   <input
@@ -239,7 +239,7 @@ export default function InventoryModals({
                 </div>
               </div>
 
-              <div style={rowStyle}>
+              <div className="modal-row">
                 <div style={{ ...inputGroupStyle, flex: 1 }}>
                   <label style={labelStyle}>Precio de Venta ($) *</label>
                   <input
@@ -303,7 +303,7 @@ export default function InventoryModals({
       {/* MODAL 2: TRANSFERENCIA DE BODEGA */}
       {showTransferModal && (
         <div style={modalBackdropStyle} onClick={() => setShowTransferModal(false)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <h2 style={{ fontSize: "1.35rem", fontWeight: 700 }}>🚚 Transferencia física de stock</h2>
               <button onClick={() => setShowTransferModal(false)} style={closeButtonStyle}>×</button>
@@ -329,7 +329,7 @@ export default function InventoryModals({
                 </select>
               </div>
 
-              <div style={rowStyle}>
+              <div className="modal-row">
                 <div style={{ ...inputGroupStyle, flex: 1 }}>
                   <label style={labelStyle}>Bodega Origen *</label>
                   <select

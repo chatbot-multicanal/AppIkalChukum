@@ -119,7 +119,7 @@ export default async function Home() {
   return (
     <main className="main-content animate-fade-in">
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
             Panel de Operaciones
@@ -128,7 +128,7 @@ export default async function Home() {
             Bienvenido de vuelta. Aquí está el estado de IkalChukum al día de hoy.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="page-header-actions">
           <Link href="/inventario" style={{ textDecoration: 'none' }}>
             <button className="btn-premium btn-secondary-sage">
               Ver Inventario
@@ -198,7 +198,7 @@ export default async function Home() {
       </div>
 
       {/* Main Grid: Transactions & Alerts */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px' }}>
+      <div className="dashboard-grid">
         
         {/* Recent Quotes Table */}
         <div className="glass-card" style={{ padding: '32px' }}>

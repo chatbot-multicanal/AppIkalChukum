@@ -365,3 +365,244 @@ body {
     min-height: auto !important;
   }
 }
+
+/* ==========================================================================
+   RESPONSIVE DESIGN RULES FOR MOBILE AND TABLET
+   ========================================================================== */
+
+/* Mobile Header for top bar navigation */
+.mobile-header {
+  display: none;
+  background-color: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px 20px;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.menu-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.menu-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Sidebar slide-out drawer close button */
+.sidebar-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 2rem;
+  font-weight: 300;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.sidebar-close-btn:hover {
+  color: var(--text-main);
+}
+
+/* Dark backdrop overlay when drawer is open */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 45;
+}
+
+.sidebar-overlay.open {
+  display: block;
+}
+
+/* Page headers wrapper responsive */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  gap: 20px;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* Layout classes default styles (desktop) */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+}
+
+.quote-form-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+}
+
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.product-item-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.modal-row {
+  display: flex;
+  gap: 16px;
+}
+
+.modal-content-card {
+  background: rgba(18, 24, 38, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 500px;
+  padding: 32px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+/* Layout adjustments on medium-to-small screens */
+@media (max-width: 992px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+  
+  .quote-form-layout {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+}
+
+/* Mobile & Android specific optimizations (<= 768px) */
+@media (max-width: 768px) {
+  .layout-container {
+    flex-direction: column;
+  }
+
+  .mobile-header {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    z-index: 50;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close-btn {
+    display: block;
+  }
+
+  .main-content {
+    padding: 24px 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .page-header h1 {
+    font-size: 1.8rem !important;
+  }
+
+  .page-header p {
+    font-size: 0.95rem !important;
+  }
+
+  .page-header-actions {
+    width: 100%;
+  }
+
+  .page-header-actions a,
+  .page-header-actions button {
+    flex: 1;
+    width: 100%;
+  }
+
+  .grid-2-col {
+    grid-template-columns: 1fr !important;
+  }
+
+  .filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .product-item-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .product-item-row > div {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  .modal-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .modal-row > div {
+    width: 100% !important;
+    flex: none !important;
+  }
+
+  .modal-content-card {
+    padding: 20px !important;
+  }
+}
+

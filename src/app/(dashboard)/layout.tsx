@@ -94,12 +94,45 @@ export default function DashboardLayout({
     }
   ];
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className="layout-container">
-      <aside className="sidebar">
-        <div className="brand-section">
-          <img src="/logo.png" alt="Logo IkalChukum" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
-          <span className="brand-name">IkalChukum</span>
+      {/* Mobile Top Header */}
+      <header className="mobile-header">
+        <button 
+          onClick={() => setIsSidebarOpen(true)} 
+          className="menu-toggle-btn"
+          aria-label="Abrir menú"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/logo.png" alt="Logo" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+          <span style={{ fontSize: '1.1rem', fontWeight: 800, background: 'linear-gradient(135deg, #ffffff 0%, #a4bd91 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>IkalChukum</span>
+        </div>
+        <div style={{ width: '40px' }}></div> {/* Spacer to center the brand logo */}
+      </header>
+
+      {/* Sidebar Drawer Overlay */}
+      <div 
+        className={`sidebar-overlay ${isSidebarOpen ? "open" : ""}`} 
+        onClick={() => setIsSidebarOpen(false)}
+      ></div>
+
+      <aside className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="brand-section">
+            <img src="/logo.png" alt="Logo IkalChukum" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
+            <span className="brand-name">IkalChukum</span>
+          </div>
+          {/* Close button on mobile */}
+          <button 
+            className="sidebar-close-btn" 
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            ×
+          </button>
         </div>
         
         <nav className="nav-group">
@@ -110,6 +143,7 @@ export default function DashboardLayout({
                 key={item.path} 
                 href={item.path} 
                 className={`nav-link ${isActive ? "active" : ""}`}
+                onClick={() => setIsSidebarOpen(false)} // Close sidebar when clicked
               >
                 {item.icon}
                 {item.name}

@@ -142,7 +142,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
       </div>
 
       {/* List */}
-      <div className="glass-card" style={{ padding: '32px' }}>
+      <div className="glass-card" style={{ padding: '32px', overflowX: 'auto' }}>
         <table className="premium-table">
           <thead>
             <tr>

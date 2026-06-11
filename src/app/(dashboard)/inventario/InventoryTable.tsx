@@ -232,7 +232,7 @@ export default function InventoryTable({
       {/* MODAL: AJUSTAR STOCK */}
       {adjustingItem && (
         <div style={modalBackdropStyle} onClick={() => setAdjustingItem(null)}>
-          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>⚙️ Ajustar Stock Inventario</h2>
               <button onClick={() => setAdjustingItem(null)} style={closeButtonStyle}>×</button>
@@ -338,7 +338,7 @@ export default function InventoryTable({
       {/* MODAL: HISTORIAL DE MOVIMIENTOS */}
       {historyItem && (
         <div style={modalBackdropStyle} onClick={() => setHistoryItem(null)}>
-          <div style={{ ...modalContentStyle, maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content-card" style={{ maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
               <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>📜 Historial de Movimientos</h2>
               <button onClick={() => setHistoryItem(null)} style={closeButtonStyle}>×</button>

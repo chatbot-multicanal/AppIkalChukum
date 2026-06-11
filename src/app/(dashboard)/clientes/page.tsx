@@ -9,7 +9,7 @@ export default async function ClientesPage() {
 
   return (
     <main className="main-content animate-fade-in">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <div className="page-header">
         <div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
             Directorio de Clientes
@@ -18,14 +18,16 @@ export default async function ClientesPage() {
             Administra los clientes, su información de contacto y segmentación por país.
           </p>
         </div>
-        <button className="btn-premium btn-primary-teal">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Agregar Cliente
-        </button>
+        <div className="page-header-actions">
+          <button className="btn-premium btn-primary-teal">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Agregar Cliente
+          </button>
+        </div>
       </div>
 
       {/* Search & Filters */}
-      <div className="glass-card" style={{ padding: '20px', marginBottom: '30px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+      <div className="glass-card filter-row" style={{ padding: '20px', marginBottom: '30px' }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <input 
             type="text" 
@@ -46,7 +48,7 @@ export default async function ClientesPage() {
       </div>
 
       {/* Clients Table */}
-      <div className="glass-card" style={{ padding: '32px' }}>
+      <div className="glass-card" style={{ padding: '32px', overflowX: 'auto' }}>
         <table className="premium-table">
           <thead>
             <tr>
