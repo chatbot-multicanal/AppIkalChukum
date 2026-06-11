@@ -161,37 +161,22 @@ async function main() {
   console.log("Productos creados.");
 
   // 6. Asignar Stock de componentes (Miami basado en Excel, Mérida el doble de Miami)
-  const stockMiamiKits = {
-    "KIT-NAT-001": 420.0, // Saco Base Color Natural
-    "KIT-GRS-002": 240.0, // Saco Base Color Gris
-    "KIT-PDR-003": 30.0,  // Saco Base Palo de Rosa
-    "KIT-AZM-004": 30.0,  // Saco Base Azul Maya
-    "KIT-VJD-005": 30.0,  // Saco Base Verde Jade
-    "KIT-AMH-006": 0.0,   // No en el contenedor de Miami
-    "KIT-PXR-007": 30.0,  // Saco Base Rojo Pixoy
-    "KIT-NGR-008": 0.0,   // No en el contenedor de Miami
-    "KIT-TRA-009": 10.0,  // Saco Pigmento Terra
+  const stockMiamiComponents = {
+    "SACO-NAT-001": 420.0, // Saco Base Color Natural
+    "SACO-GRS-002": 240.0, // Saco Base Color Gris
+    "SACO-PDR-003": 30.0,  // Saco Base Palo de Rosa
+    "SACO-AZM-004": 30.0,  // Saco Base Azul Maya
+    "SACO-VJD-005": 30.0,  // Saco Base Verde Jade
+    "SACO-AMH-006": 0.0,   // Amarillo Hacienda
+    "SACO-PXR-007": 30.0,  // Saco Base Rojo Pixoy
+    "SACO-NGR-008": 0.0,   // Negro
+    "SACO-TRA-009": 10.0,  // Saco Pigmento Terra
+    "BIDON-RES-001": 260.0, // Agua de Chukum Bidón
   };
 
-  const totalBidonMiami = Object.values(stockMiamiKits).reduce((sum, qty) => sum + qty, 0); // 790.0
-  const totalBidonMerida = totalBidonMiami * 2; // 1580.0
-
   for (const product of products) {
-    let qtyMiami = 0;
-    let qtyMerida = 0;
-
-    if (product.sku.startsWith("SACO-")) {
-      const kitSku = product.sku.replace("SACO-", "KIT-");
-      const kitQtyMiami = stockMiamiKits[kitSku] || 0;
-      qtyMiami = kitQtyMiami * 3;
-      qtyMerida = qtyMiami * 2;
-    } else if (product.sku === "BIDON-RES-001") {
-      qtyMiami = totalBidonMiami;
-      qtyMerida = totalBidonMerida;
-    } else if (product.sku.startsWith("KIT-")) {
-      qtyMiami = 0;
-      qtyMerida = 0;
-    }
+    let qtyMiami = stockMiamiComponents[product.sku] || 0;
+    let qtyMerida = qtyMiami * 2; // Mérida tiene el doble de stock que Miami
 
     // Stock en Miami
     await prisma.inventory.create({
@@ -224,9 +209,9 @@ async function main() {
       status: "APPROVED",
       currency: "MXN",
       exchangeRate: 1.0,
-      subtotal: 109000.00,
-      tax: 17440.00,
-      total: 126440.00,
+      subtotal: 31000.00,
+      tax: 4960.00,
+      total: 35960.00,
       items: {
         create: [
           {
@@ -237,9 +222,9 @@ async function main() {
           },
           {
             productId: products[4].id, // Kit Verde Jade (1300 venta)
-            quantity: 70.0,
+            quantity: 10.0,
             unitPrice: 1300.0,
-            total: 91000.0,
+            total: 13000.0,
           }
         ]
       }
@@ -267,12 +252,12 @@ async function main() {
 
   await prisma.inventory.update({
     where: { warehouseId_productId: { warehouseId: whMerida.id, productId: jadeSaco.id } },
-    data: { quantity: { decrement: 70.0 * 3 } } // 210 sacos
+    data: { quantity: { decrement: 10.0 * 3 } } // 30 sacos
   });
 
   await prisma.inventory.update({
     where: { warehouseId_productId: { warehouseId: whMerida.id, productId: resinBidon.id } },
-    data: { quantity: { decrement: 85.0 } } // 15 + 70 = 85 bidones
+    data: { quantity: { decrement: 25.0 } } // 15 + 10 = 25 bidones
   });
 
   console.log("Seed finalizado con éxito.");
