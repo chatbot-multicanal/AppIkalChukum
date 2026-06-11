@@ -115,39 +115,106 @@ export async function updateOrderStatusAction(
         }
 
         // Evitar doble deducción de stock
-        if (order.status !== "PENDING") {
-          throw new Error("Este pedido ya ha salido del estado pendiente y sus existencias fueron descontadas.");
+        if (order.status !== "PENDING" && order.status !== "CANCELLED") {
+          throw new Error("Este pedido ya ha salido del estado pendiente o cancelado.");
         }
 
-        // Descontar inventario por cada ítem en la cotización
-        for (const item of order.quote.items) {
-          const inv = await tx.inventory.findUnique({
-            where: {
-              warehouseId_productId: {
-                warehouseId: warehouseId,
-                productId: item.productId,
-              },
-            },
-          });
+        // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+        const requiredQuantities: Record<string, { qty: number; name: string }> = {};
 
-          if (!inv || inv.quantity < item.quantity) {
-            throw new Error(
-              `Stock insuficiente para el producto "${item.product.name}" en la bodega seleccionada. Stock disponible: ${inv?.quantity || 0}, Requerido: ${item.quantity}.`
-            );
+        for (const item of order.quote.items) {
+          const sku = item.product.sku;
+          if (sku.startsWith("KIT-")) {
+            const sacoSku = sku.replace("KIT-", "SACO-");
+            const bidonSku = "BIDON-RES-001";
+
+            requiredQuantities[sacoSku] = {
+              qty: (requiredQuantities[sacoSku]?.qty || 0) + item.quantity * 3,
+              name: item.product.name.replace("Kit", "Saco")
+            };
+            requiredQuantities[bidonSku] = {
+              qty: (requiredQuantities[bidonSku]?.qty || 0) + item.quantity * 1,
+              name: "Bidón Resina"
+            };
+          } else {
+            requiredQuantities[sku] = {
+              qty: (requiredQuantities[sku]?.qty || 0) + item.quantity,
+              name: item.product.name
+            };
+          }
+        }
+
+        // Si la bodega seleccionada es distinta a la de la cotización original (y no venimos de CANCELLED donde ya se devolvió stock)
+        // O si venimos de CANCELLED (donde el stock ya se restauró y debemos descontarlo en la nueva bodega)
+        const isChangingWarehouse = order.status === "PENDING" && warehouseId !== order.quote.warehouseId;
+        const isFromCancelled = order.status === "CANCELLED";
+
+        if (isChangingWarehouse) {
+          // Revertir descuento de stock en la bodega de la cotización original
+          if (order.quote.warehouseId) {
+            for (const [sku, req] of Object.entries(requiredQuantities)) {
+              const product = await tx.product.findUnique({ where: { sku } });
+              if (product) {
+                await tx.inventory.update({
+                  where: {
+                    warehouseId_productId: {
+                      warehouseId: order.quote.warehouseId,
+                      productId: product.id,
+                    },
+                  },
+                  data: {
+                    quantity: { increment: req.qty },
+                  },
+                });
+              }
+            }
+          }
+        }
+
+        // Si cambiamos de bodega o venimos de cancelado, descontamos en la bodega seleccionada (validando stock)
+        if (isChangingWarehouse || isFromCancelled) {
+          // Validar stock en la nueva bodega
+          for (const [sku, req] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (!product) {
+              throw new Error(`El componente con SKU "${sku}" no existe en el catálogo.`);
+            }
+
+            const inv = await tx.inventory.findUnique({
+              where: {
+                warehouseId_productId: {
+                  warehouseId: warehouseId,
+                  productId: product.id,
+                },
+              },
+            });
+
+            const stockAvailable = inv ? inv.quantity : 0;
+            if (stockAvailable < req.qty) {
+              const unitLabel = sku.startsWith("BIDON-") ? "bidones" : "sacos";
+              throw new Error(
+                `Stock insuficiente para el componente "${req.name}" en la bodega seleccionada. Stock disponible: ${stockAvailable} ${unitLabel}, Requerido: ${req.qty}.`
+              );
+            }
           }
 
-          // Restar cantidad
-          await tx.inventory.update({
-            where: {
-              warehouseId_productId: {
-                warehouseId: warehouseId,
-                productId: item.productId,
-              },
-            },
-            data: {
-              quantity: { decrement: item.quantity },
-            },
-          });
+          // Descontar en la nueva bodega
+          for (const [sku, req] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (product) {
+              await tx.inventory.update({
+                where: {
+                  warehouseId_productId: {
+                    warehouseId: warehouseId,
+                    productId: product.id,
+                  },
+                },
+                data: {
+                  quantity: { decrement: req.qty },
+                },
+              });
+            }
+          }
         }
 
         // Asignar bodega y actualizar estatus
@@ -160,25 +227,49 @@ export async function updateOrderStatusAction(
         });
       }
       
-      // LÓGICA DE RETORNO DE STOCK: Si se CANCELA habiendo estado en preparación o enviado
+      // LÓGICA DE RETORNO DE STOCK: Si se CANCELA
       else if (newStatus === "CANCELLED") {
-        const wasDeducted = order.status === "PREPARING" || order.status === "SHIPPED";
-        const wId = order.warehouseId;
+        // Determinamos de dónde se descontó el stock. 
+        // Si estaba en PREPARING o SHIPPED, se descontó de order.warehouseId.
+        // Si estaba en PENDING, se descontó de order.quote.warehouseId.
+        const wasDeducted = order.status === "PREPARING" || order.status === "SHIPPED" || order.status === "PENDING";
+        const targetWarehouseId = (order.status === "PREPARING" || order.status === "SHIPPED") 
+          ? order.warehouseId 
+          : order.quote.warehouseId;
 
-        if (wasDeducted && wId) {
-          // Devolver sacos al inventario
+        if (wasDeducted && targetWarehouseId) {
+          // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+          const requiredQuantities: Record<string, number> = {};
+
           for (const item of order.quote.items) {
-            await tx.inventory.update({
-              where: {
-                warehouseId_productId: {
-                  warehouseId: wId,
-                  productId: item.productId,
+            const sku = item.product.sku;
+            if (sku.startsWith("KIT-")) {
+              const sacoSku = sku.replace("KIT-", "SACO-");
+              const bidonSku = "BIDON-RES-001";
+
+              requiredQuantities[sacoSku] = (requiredQuantities[sacoSku] || 0) + item.quantity * 3;
+              requiredQuantities[bidonSku] = (requiredQuantities[bidonSku] || 0) + item.quantity * 1;
+            } else {
+              requiredQuantities[sku] = (requiredQuantities[sku] || 0) + item.quantity;
+            }
+          }
+
+          // Devolver sacos y bidones al inventario
+          for (const [sku, qty] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (product) {
+              await tx.inventory.update({
+                where: {
+                  warehouseId_productId: {
+                    warehouseId: targetWarehouseId,
+                    productId: product.id,
+                  },
                 },
-              },
-              data: {
-                quantity: { increment: item.quantity },
-              },
-            });
+                data: {
+                  quantity: { increment: qty },
+                },
+              });
+            }
           }
         }
 
@@ -193,6 +284,89 @@ export async function updateOrderStatusAction(
         await tx.order.update({
           where: { id: orderId },
           data: { status: newStatus },
+        });
+      }
+
+      // LÓGICA DE REAPERTURA: Si se cambia de CANCELLED a PENDING
+      else if (newStatus === "PENDING" && order.status === "CANCELLED") {
+        if (!order.quote.warehouseId) {
+          throw new Error("El pedido no tiene una bodega asignada en la cotización.");
+        }
+
+        // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+        const requiredQuantities: Record<string, { qty: number; name: string }> = {};
+
+        for (const item of order.quote.items) {
+          const sku = item.product.sku;
+          if (sku.startsWith("KIT-")) {
+            const sacoSku = sku.replace("KIT-", "SACO-");
+            const bidonSku = "BIDON-RES-001";
+
+            requiredQuantities[sacoSku] = {
+              qty: (requiredQuantities[sacoSku]?.qty || 0) + item.quantity * 3,
+              name: item.product.name.replace("Kit", "Saco")
+            };
+            requiredQuantities[bidonSku] = {
+              qty: (requiredQuantities[bidonSku]?.qty || 0) + item.quantity * 1,
+              name: "Bidón Resina"
+            };
+          } else {
+            requiredQuantities[sku] = {
+              qty: (requiredQuantities[sku]?.qty || 0) + item.quantity,
+              name: item.product.name
+            };
+          }
+        }
+
+        // Validar stock en la bodega de la cotización
+        for (const [sku, req] of Object.entries(requiredQuantities)) {
+          const product = await tx.product.findUnique({ where: { sku } });
+          if (!product) {
+            throw new Error(`El componente con SKU "${sku}" no existe en el catálogo.`);
+          }
+
+          const inv = await tx.inventory.findUnique({
+            where: {
+              warehouseId_productId: {
+                warehouseId: order.quote.warehouseId,
+                productId: product.id,
+              },
+            },
+          });
+
+          const stockAvailable = inv ? inv.quantity : 0;
+          if (stockAvailable < req.qty) {
+            const unitLabel = sku.startsWith("BIDON-") ? "bidones" : "sacos";
+            throw new Error(
+              `Stock insuficiente para reabrir el pedido. Falta componente "${req.name}" en la bodega de origen. Disponible: ${stockAvailable} ${unitLabel}, Requerido: ${req.qty}.`
+            );
+          }
+        }
+
+        // Descontar en la bodega de la cotización y reiniciar warehouseId a null (ya que es PENDING)
+        for (const [sku, req] of Object.entries(requiredQuantities)) {
+          const product = await tx.product.findUnique({ where: { sku } });
+          if (product) {
+            await tx.inventory.update({
+              where: {
+                warehouseId_productId: {
+                  warehouseId: order.quote.warehouseId,
+                  productId: product.id,
+                },
+              },
+              data: {
+                quantity: { decrement: req.qty },
+              },
+            });
+          }
+        }
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { 
+            status: newStatus,
+            warehouseId: null,
+          },
         });
       }
       

@@ -33,9 +33,18 @@ export default async function InventarioPage({
     w => w.name.toLowerCase().includes(selectedBodegaName.toLowerCase())
   ) || warehouses[0];
 
-  // 3. Obtener el stock real de la bodega seleccionada
+  // 3. Obtener el stock real de la bodega seleccionada (solo componentes físicos)
   const inventoryItems = await db.inventory.findMany({
-    where: { warehouseId: selectedWh.id },
+    where: { 
+      warehouseId: selectedWh.id,
+      product: {
+        active: true,
+        OR: [
+          { sku: { startsWith: "SACO-" } },
+          { sku: "BIDON-RES-001" }
+        ]
+      }
+    },
     include: {
       product: true
     },
@@ -46,13 +55,29 @@ export default async function InventarioPage({
     }
   });
 
-  // 4. Obtener todos los productos y el inventario global para los modales de administración
+  // 4. Obtener todos los productos y el inventario global para los modales de administración (solo componentes físicos)
   const products = await db.product.findMany({
-    where: { active: true },
+    where: { 
+      active: true,
+      OR: [
+        { sku: { startsWith: "SACO-" } },
+        { sku: "BIDON-RES-001" }
+      ]
+    },
     orderBy: { name: "asc" }
   });
 
-  const allInventory = await db.inventory.findMany();
+  const allInventory = await db.inventory.findMany({
+    where: {
+      product: {
+        active: true,
+        OR: [
+          { sku: { startsWith: "SACO-" } },
+          { sku: "BIDON-RES-001" }
+        ]
+      }
+    }
+  });
 
   return (
     <main className="main-content animate-fade-in">

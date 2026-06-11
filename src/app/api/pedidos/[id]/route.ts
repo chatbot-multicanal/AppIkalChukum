@@ -21,13 +21,15 @@ export async function PATCH(
       );
     }
 
-    // 1. Buscar el pedido junto con su cotización e ítems
+    // 1. Buscar el pedido junto con su cotización e ítems (incluyendo producto)
     const order = await db.order.findUnique({
       where: { id },
       include: {
         quote: {
           include: {
-            items: true
+            items: {
+              include: { product: true }
+            }
           }
         }
       }
@@ -87,23 +89,43 @@ export async function PATCH(
 
       // --- AUTOMATIZACIÓN 2: Pedido Cancelado (CANCELLED) ---
       if (status === "CANCELLED" && previousStatus !== "CANCELLED") {
-        // A. Reingresar inventario (devolver stock de los kits a la bodega original)
-        if (order.quote.warehouseId) {
+        // A. Reingresar inventario (devolver stock de componentes)
+        const targetWarehouseId = (previousStatus === "PREPARING" || previousStatus === "SHIPPED") 
+          ? order.warehouseId 
+          : order.quote.warehouseId;
+
+        if (targetWarehouseId) {
+          // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+          const requiredQuantities: Record<string, number> = {};
+
           for (const item of order.quote.items) {
-            // Incrementar cantidad de stock
-            await tx.inventory.update({
-              where: {
-                warehouseId_productId: {
-                  warehouseId: order.quote.warehouseId,
-                  productId: item.productId
-                }
-              },
-              data: {
-                quantity: {
-                  increment: item.quantity
-                }
-              }
-            });
+            const sku = item.product.sku;
+            if (sku.startsWith("KIT-")) {
+              const sacoSku = sku.replace("KIT-", "SACO-");
+              const bidonSku = "BIDON-RES-001";
+
+              requiredQuantities[sacoSku] = (requiredQuantities[sacoSku] || 0) + item.quantity * 3;
+              requiredQuantities[bidonSku] = (requiredQuantities[bidonSku] || 0) + item.quantity * 1;
+            } else {
+              requiredQuantities[sku] = (requiredQuantities[sku] || 0) + item.quantity;
+            }
+          }
+
+          for (const [sku, qty] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (product) {
+              await tx.inventory.update({
+                where: {
+                  warehouseId_productId: {
+                    warehouseId: targetWarehouseId,
+                    productId: product.id,
+                  },
+                },
+                data: {
+                  quantity: { increment: qty },
+                },
+              });
+            }
           }
         }
 
@@ -121,42 +143,85 @@ export async function PATCH(
             entity: "Order",
             entityId: order.id,
             action: "UPDATE",
-            details: JSON.stringify({ message: "Pedido cancelado. Inventario reingresado y comisión anulada." })
+            details: JSON.stringify({ message: "Pedido cancelado. Inventario de componentes reingresado y comisión anulada." })
           }
         });
       }
 
       // --- Si pasa de CANCELLED a otra cosa (ej: PENDING o SHIPPED) ---
       if (previousStatus === "CANCELLED" && status !== "CANCELLED") {
-        // Volver a descontar inventario (verificación de stock)
-        if (order.quote.warehouseId) {
-          for (const item of order.quote.items) {
-            const inventory = await tx.inventory.findUnique({
-              where: {
-                warehouseId_productId: {
-                  warehouseId: order.quote.warehouseId,
-                  productId: item.productId
-                }
-              }
-            });
+        // Volver a descontar inventario (verificación de stock de componentes)
+        const targetWarehouseId = (status === "PREPARING" || status === "SHIPPED") && order.warehouseId
+          ? order.warehouseId
+          : order.quote.warehouseId;
 
-            if (!inventory || inventory.quantity < item.quantity) {
-              throw new Error(`Stock insuficiente en bodega para reabrir el pedido: ${item.productId}`);
+        if (targetWarehouseId) {
+          // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+          const requiredQuantities: Record<string, { qty: number; name: string }> = {};
+
+          for (const item of order.quote.items) {
+            const sku = item.product.sku;
+            if (sku.startsWith("KIT-")) {
+              const sacoSku = sku.replace("KIT-", "SACO-");
+              const bidonSku = "BIDON-RES-001";
+
+              requiredQuantities[sacoSku] = {
+                qty: (requiredQuantities[sacoSku]?.qty || 0) + item.quantity * 3,
+                name: item.product.name.replace("Kit", "Saco")
+              };
+              requiredQuantities[bidonSku] = {
+                qty: (requiredQuantities[bidonSku]?.qty || 0) + item.quantity * 1,
+                name: "Bidón Resina"
+              };
+            } else {
+              requiredQuantities[sku] = {
+                qty: (requiredQuantities[sku]?.qty || 0) + item.quantity,
+                name: item.product.name
+              };
+            }
+          }
+
+          // Validar stock
+          for (const [sku, req] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (!product) {
+              throw new Error(`El componente con SKU "${sku}" no existe en el catálogo.`);
             }
 
-            await tx.inventory.update({
+            const inv = await tx.inventory.findUnique({
               where: {
                 warehouseId_productId: {
-                  warehouseId: order.quote.warehouseId,
-                  productId: item.productId
-                }
+                  warehouseId: targetWarehouseId,
+                  productId: product.id,
+                },
               },
-              data: {
-                quantity: {
-                  decrement: item.quantity
-                }
-              }
             });
+
+            const stockAvailable = inv ? inv.quantity : 0;
+            if (stockAvailable < req.qty) {
+              const unitLabel = sku.startsWith("BIDON-") ? "bidones" : "sacos";
+              throw new Error(
+                `Stock insuficiente para reabrir el pedido. Falta componente "${req.name}". Disponible: ${stockAvailable} ${unitLabel}, Requerido: ${req.qty}.`
+              );
+            }
+          }
+
+          // Descontar stock
+          for (const [sku, req] of Object.entries(requiredQuantities)) {
+            const product = await tx.product.findUnique({ where: { sku } });
+            if (product) {
+              await tx.inventory.update({
+                where: {
+                  warehouseId_productId: {
+                    warehouseId: targetWarehouseId,
+                    productId: product.id,
+                  },
+                },
+                data: {
+                  quantity: { decrement: req.qty },
+                },
+              });
+            }
           }
         }
       }

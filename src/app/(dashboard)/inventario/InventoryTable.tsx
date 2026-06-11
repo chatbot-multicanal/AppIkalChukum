@@ -127,7 +127,7 @@ export default function InventoryTable({
   return (
     <div className="glass-card" style={{ padding: "32px" }}>
       <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--text-main)", marginBottom: "24px" }}>
-        Stock de Kits en {warehouseName}
+        Stock en {warehouseName}
       </h2>
 
       <div style={{ overflowX: "auto" }}>
@@ -139,7 +139,7 @@ export default function InventoryTable({
               <th>Bodega</th>
               {showCost && <th>Costo Compra</th>}
               <th>Precio Base</th>
-              <th>Cantidad (Kits)</th>
+              <th>Cantidad</th>
               <th>Estado</th>
               {isAdmin && <th style={{ textAlign: "right" }}>Acciones</th>}
             </tr>
@@ -241,7 +241,7 @@ export default function InventoryTable({
             <div style={{ marginBottom: "16px", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)", fontSize: "0.85rem" }}>
               <div><strong>Bodega:</strong> {warehouseName}</div>
               <div><strong>Producto:</strong> {adjustingItem.product.name} ({adjustingItem.product.sku})</div>
-              <div><strong>Stock Actual:</strong> <span style={{ fontWeight: "bold" }}>{adjustingItem.quantity.toFixed(1)} sacos</span></div>
+              <div><strong>Stock Actual:</strong> <span style={{ fontWeight: "bold" }}>{adjustingItem.quantity.toFixed(1)} {adjustingItem.product.sku.startsWith("BIDON-") ? "bidones" : "sacos"}</span></div>
             </div>
 
             {error && <div style={errorStyle}>⚠️ {error}</div>}
@@ -262,7 +262,7 @@ export default function InventoryTable({
                       color: adjType === "ADD" ? "var(--primary-teal)" : "var(--text-secondary)",
                       fontWeight: 700,
                       cursor: "pointer",
-                    }}
+                     }}
                   >
                     Agregar (+)
                   </button>
@@ -286,7 +286,7 @@ export default function InventoryTable({
               </div>
 
               <div style={inputGroupStyle}>
-                <label style={labelStyle}>Cantidad (Sacos) *</label>
+                <label style={labelStyle}>Cantidad ({adjustingItem.product.sku.startsWith("BIDON-") ? "Bidones" : "Sacos"}) *</label>
                 <input
                   type="number"
                   step="0.1"

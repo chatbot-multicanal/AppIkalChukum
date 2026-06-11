@@ -125,8 +125,9 @@ async function main() {
   });
   console.log("Bodegas creadas (Mérida, Miami).");
 
-  // 5. Crear Productos (Kits de Chukum con precios reales)
+  // 5. Crear Productos (Kits de Chukum, Sacos y Bidón con precios reales)
   const productsData = [
+    // Kits de Venta
     { sku: "KIT-NAT-001", name: "Kit Natural", description: "Kit base acabado natural", color: "Natural", basePrice: 1200.0, costPrice: 805.0 },
     { sku: "KIT-GRS-002", name: "Kit Gris", description: "Kit base color gris", color: "Gris", basePrice: 1300.0, costPrice: 850.0 },
     { sku: "KIT-PDR-003", name: "Kit Palo de Rosa", description: "Kit base color palo de rosa", color: "Palo de Rosa", basePrice: 1300.0, costPrice: 850.0 },
@@ -136,6 +137,20 @@ async function main() {
     { sku: "KIT-PXR-007", name: "Kit Pixoy Rojo", description: "Kit base color rojo pixoy", color: "Rojo Pixoy", basePrice: 1300.0, costPrice: 850.0 },
     { sku: "KIT-NGR-008", name: "Kit Negro", description: "Kit base color negro", color: "Negro", basePrice: 1300.0, costPrice: 850.0 },
     { sku: "KIT-TRA-009", name: "Kit Tierra", description: "Kit base color pigmento terra", color: "Tierra", basePrice: 1300.0, costPrice: 850.0 },
+
+    // Componentes de Sacos (físicos en bodega)
+    { sku: "SACO-NAT-001", name: "Saco Natural", description: "Saco de mezcla base natural", color: "Natural", basePrice: 370.0, costPrice: 270.0 },
+    { sku: "SACO-GRS-002", name: "Saco Gris", description: "Saco de mezcla base color gris", color: "Gris", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-PDR-003", name: "Saco Palo de Rosa", description: "Saco de mezcla base color palo de rosa", color: "Palo de Rosa", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-AZM-004", name: "Saco Azul Maya", description: "Saco de mezcla base color azul maya", color: "Azul Maya", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-VJD-005", name: "Saco Verde Jade", description: "Saco de mezcla base color verde jade", color: "Verde Jade", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-AMH-006", name: "Saco Amarillo Hacienda", description: "Saco de mezcla base color amarillo hacienda", color: "Amarillo Hacienda", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-PXR-007", name: "Saco Pixoy Rojo", description: "Saco de mezcla base color rojo pixoy", color: "Rojo Pixoy", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-NGR-008", name: "Saco Negro", description: "Saco de mezcla base color negro", color: "Negro", basePrice: 400.0, costPrice: 320.0 },
+    { sku: "SACO-TRA-009", name: "Saco Tierra", description: "Saco de mezcla base color pigmento terra", color: "Tierra", basePrice: 400.0, costPrice: 320.0 },
+
+    // Componente Bidón (físico en bodega)
+    { sku: "BIDON-RES-001", name: "Bidón Resina", description: "Bidón de resina líquida concentrada", color: null, basePrice: 440.0, costPrice: 340.0 },
   ];
 
   const products = [];
@@ -145,8 +160,8 @@ async function main() {
   }
   console.log("Productos creados.");
 
-  // 6. Asignar Stock (Miami basado en Excel, Mérida el doble de Miami)
-  const stockMiami = {
+  // 6. Asignar Stock de componentes (Miami basado en Excel, Mérida el doble de Miami)
+  const stockMiamiKits = {
     "KIT-NAT-001": 420.0, // Saco Base Color Natural
     "KIT-GRS-002": 240.0, // Saco Base Color Gris
     "KIT-PDR-003": 30.0,  // Saco Base Palo de Rosa
@@ -158,9 +173,25 @@ async function main() {
     "KIT-TRA-009": 10.0,  // Saco Pigmento Terra
   };
 
+  const totalBidonMiami = Object.values(stockMiamiKits).reduce((sum, qty) => sum + qty, 0); // 790.0
+  const totalBidonMerida = totalBidonMiami * 2; // 1580.0
+
   for (const product of products) {
-    const qtyMiami = stockMiami[product.sku] || 0;
-    const qtyMerida = qtyMiami * 2; // Mérida tiene el doble de stock que Miami
+    let qtyMiami = 0;
+    let qtyMerida = 0;
+
+    if (product.sku.startsWith("SACO-")) {
+      const kitSku = product.sku.replace("SACO-", "KIT-");
+      const kitQtyMiami = stockMiamiKits[kitSku] || 0;
+      qtyMiami = kitQtyMiami * 3;
+      qtyMerida = qtyMiami * 2;
+    } else if (product.sku === "BIDON-RES-001") {
+      qtyMiami = totalBidonMiami;
+      qtyMerida = totalBidonMerida;
+    } else if (product.sku.startsWith("KIT-")) {
+      qtyMiami = 0;
+      qtyMerida = 0;
+    }
 
     // Stock en Miami
     await prisma.inventory.create({
@@ -224,7 +255,26 @@ async function main() {
     }
   });
 
-  console.log("Cotización y pedido de prueba creados.");
+  // 8. Descontar stock correspondiente al pedido de prueba en Mérida
+  const naturalSaco = products.find(p => p.sku === "SACO-NAT-001");
+  const jadeSaco = products.find(p => p.sku === "SACO-VJD-005");
+  const resinBidon = products.find(p => p.sku === "BIDON-RES-001");
+
+  await prisma.inventory.update({
+    where: { warehouseId_productId: { warehouseId: whMerida.id, productId: naturalSaco.id } },
+    data: { quantity: { decrement: 15.0 * 3 } } // 45 sacos
+  });
+
+  await prisma.inventory.update({
+    where: { warehouseId_productId: { warehouseId: whMerida.id, productId: jadeSaco.id } },
+    data: { quantity: { decrement: 70.0 * 3 } } // 210 sacos
+  });
+
+  await prisma.inventory.update({
+    where: { warehouseId_productId: { warehouseId: whMerida.id, productId: resinBidon.id } },
+    data: { quantity: { decrement: 85.0 } } // 15 + 70 = 85 bidones
+  });
+
   console.log("Seed finalizado con éxito.");
 }
 

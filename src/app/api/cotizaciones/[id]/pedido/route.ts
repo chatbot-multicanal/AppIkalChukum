@@ -43,39 +43,81 @@ export async function POST(
         throw new Error("La cotización no tiene una bodega asignada.");
       }
 
-      // VALIDACIÓN: Stock suficiente al crear pedido (hard block)
+      // Agrupar cantidades requeridas de cada SKU (Sacos y Bidón)
+      const requiredQuantities: Record<string, { qty: number; name: string }> = {};
+
       for (const item of quote.items) {
+        const sku = item.product.sku;
+        if (sku.startsWith("KIT-")) {
+          const sacoSku = sku.replace("KIT-", "SACO-");
+          const bidonSku = "BIDON-RES-001";
+
+          requiredQuantities[sacoSku] = {
+            qty: (requiredQuantities[sacoSku]?.qty || 0) + item.quantity * 3,
+            name: item.product.name.replace("Kit", "Saco")
+          };
+          requiredQuantities[bidonSku] = {
+            qty: (requiredQuantities[bidonSku]?.qty || 0) + item.quantity * 1,
+            name: "Bidón Resina"
+          };
+        } else {
+          requiredQuantities[sku] = {
+            qty: (requiredQuantities[sku]?.qty || 0) + item.quantity,
+            name: item.product.name
+          };
+        }
+      }
+
+      // VALIDACIÓN: Stock suficiente de componentes (hard block)
+      for (const [sku, req] of Object.entries(requiredQuantities)) {
+        const product = await tx.product.findUnique({
+          where: { sku }
+        });
+
+        if (!product) {
+          throw new Error(`El componente con SKU "${sku}" no existe en el catálogo.`);
+        }
+
         const inventory = await tx.inventory.findUnique({
           where: {
             warehouseId_productId: {
               warehouseId: quote.warehouseId,
-              productId: item.productId
+              productId: product.id
             }
           }
         });
 
         const stockAvailable = inventory ? inventory.quantity : 0;
 
-        if (stockAvailable < item.quantity) {
+        if (stockAvailable < req.qty) {
+          const unitLabel = sku.startsWith("BIDON-") ? "bidones" : "sacos";
           throw new Error(
-            `STOCK INSUFICIENTE (Bloqueo): El producto "${item.product.name}" solo tiene ${stockAvailable} sacos disponibles en esta bodega, pero se solicitaron ${item.quantity}.`
+            `STOCK INSUFICIENTE (Bloqueo): El componente "${req.name}" solo tiene ${stockAvailable} ${unitLabel} disponibles en esta bodega, pero se requieren ${req.qty} para surtir los kits.`
           );
         }
+      }
 
-        // DESCONTAR INVENTARIO
-        await tx.inventory.update({
-          where: {
-            warehouseId_productId: {
-              warehouseId: quote.warehouseId,
-              productId: item.productId
-            }
-          },
-          data: {
-            quantity: {
-              decrement: item.quantity
-            }
-          }
+      // DESCONTAR INVENTARIO DE COMPONENTES
+      for (const [sku, req] of Object.entries(requiredQuantities)) {
+        const product = await tx.product.findUnique({
+          where: { sku }
         });
+        
+        if (product) {
+          await tx.inventory.update({
+            where: {
+              warehouseId_productId: {
+                warehouseId: quote.warehouseId,
+                productId: product.id
+              }
+            },
+            data: {
+              quantity: {
+                decrement: req.qty
+              }
+            }
+          });
+        }
       }
 
       // 3. Crear el Pedido
