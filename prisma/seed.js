@@ -32,7 +32,7 @@ async function main() {
       email: "admin@ikalchukum.com",
       name: "Admin Chukum",
       role: "ADMIN",
-      password: "password123",
+      password: "nosecuartea2026",
       active: true,
     },
   });
@@ -63,6 +63,16 @@ async function main() {
       name: "Vendedor Pro",
       role: "VENDEDOR",
       password: "password123",
+      active: true,
+    },
+  });
+
+  const adminAsf = await prisma.user.create({
+    data: {
+      email: "asf2485@gmail.com",
+      name: "Arturo Silva",
+      role: "ADMIN",
+      password: "quiensabe",
       active: true,
     },
   });
