@@ -87,6 +87,16 @@ async function main() {
     },
   });
 
+  const vendedorDan = await prisma.user.create({
+    data: {
+      email: "dantorre86@gmail.com",
+      name: "Dan Torre",
+      role: "VENDEDOR",
+      password: "contoronjas2026",
+      active: true,
+    },
+  });
+
   // Crear configuración de comisión por defecto (3%)
   await prisma.systemSetting.create({
     data: {
