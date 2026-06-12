@@ -77,6 +77,16 @@ async function main() {
     },
   });
 
+  const vendedorClaudio = await prisma.user.create({
+    data: {
+      email: "claudioalp6@gmail.com",
+      name: "Claudio Alp",
+      role: "VENDEDOR",
+      password: "Gallosix",
+      active: true,
+    },
+  });
+
   // Crear configuración de comisión por defecto (3%)
   await prisma.systemSetting.create({
     data: {
