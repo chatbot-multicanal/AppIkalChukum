@@ -3,106 +3,122 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export interface CreateClientInput {
+export async function getClientsAction() {
+  try {
+    const clients = await db.client.findMany({
+      orderBy: { name: "asc" }
+    });
+    return { success: true, clients };
+  } catch (error: any) {
+    console.error("Error in getClientsAction:", error);
+    return { success: false, error: error.message || "Error al obtener clientes" };
+  }
+}
+
+export async function createClientAction(data: {
   name: string;
+  company?: string;
   contact?: string;
   email?: string;
   phone?: string;
   address?: string;
+  state?: string;
+  zip?: string;
   city: string;
   country: string;
-}
-
-/**
- * Fetches all clients, optionally filtered by a search query.
- */
-export async function getClientsAction(searchQuery?: string) {
+  receptionSchedule?: string;
+}) {
   try {
-    const whereClause = searchQuery
-      ? {
-          active: true,
-          OR: [
-            { name: { contains: searchQuery } },
-            { contact: { contains: searchQuery } },
-            { city: { contains: searchQuery } },
-          ],
-        }
-      : { active: true };
+    if (!data.name || !data.city || !data.country) {
+      throw new Error("Nombre, Ciudad y País son requeridos.");
+    }
 
-    const clients = await db.client.findMany({
-      where: whereClause,
-      orderBy: { name: "asc" },
+    const client = await db.client.create({
+      data: {
+        name: data.name.trim(),
+        company: data.company?.trim() || null,
+        contact: data.contact?.trim() || null,
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        address: data.address?.trim() || null,
+        state: data.state?.trim() || null,
+        zip: data.zip?.trim() || null,
+        city: data.city.trim(),
+        country: data.country.trim(),
+        receptionSchedule: data.receptionSchedule?.trim() || null,
+        active: true
+      }
     });
 
-    return {
-      success: true,
-      clients,
-    };
+    revalidatePath("/clientes");
+    revalidatePath("/cotizaciones/nueva");
+    return { success: true, client };
   } catch (error: any) {
-    console.error("Error in getClientsAction:", error);
-    return {
-      success: false,
-      error: error.message || "Error al obtener clientes",
-      clients: [],
-    };
+    console.error("Error in createClientAction:", error);
+    return { success: false, error: error.message || "Error al crear cliente" };
   }
 }
 
-/**
- * Creates a new client and adds an audit log entry.
- */
-export async function createClientAction(data: CreateClientInput) {
+export async function updateClientAction(
+  id: string,
+  data: {
+    name: string;
+    company?: string;
+    contact?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    state?: string;
+    zip?: string;
+    city: string;
+    country: string;
+    receptionSchedule?: string;
+  }
+) {
   try {
-    // 1. Validation
     if (!data.name || !data.city || !data.country) {
-      throw new Error("El nombre del cliente, la ciudad y el país son obligatorios.");
+      throw new Error("Nombre, Ciudad y País son requeridos.");
     }
 
-    // 2. Insert into SQLite via Prisma transaction
-    const client = await db.$transaction(async (tx) => {
-      const c = await tx.client.create({
-        data: {
-          name: data.name,
-          contact: data.contact || null,
-          email: data.email || null,
-          phone: data.phone || null,
-          address: data.address || null,
-          city: data.city,
-          country: data.country,
-          active: true,
-        },
-      });
-
-      // Log the creation
-      await tx.auditLog.create({
-        data: {
-          entity: "Client",
-          entityId: c.id,
-          action: "CREATE",
-          details: JSON.stringify({
-            name: c.name,
-            city: c.city,
-            country: c.country,
-          }),
-        },
-      });
-
-      return c;
+    const client = await db.client.update({
+      where: { id },
+      data: {
+        name: data.name.trim(),
+        company: data.company?.trim() || null,
+        contact: data.contact?.trim() || null,
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim() || null,
+        address: data.address?.trim() || null,
+        state: data.state?.trim() || null,
+        zip: data.zip?.trim() || null,
+        city: data.city.trim(),
+        country: data.country.trim(),
+        receptionSchedule: data.receptionSchedule?.trim() || null
+      }
     });
 
-    // 3. Revalidate Next.js cache for the pages
     revalidatePath("/clientes");
-    revalidatePath("/cotizaciones");
-
-    return {
-      success: true,
-      client,
-    };
+    revalidatePath("/cotizaciones/nueva");
+    return { success: true, client };
   } catch (error: any) {
-    console.error("Error in createClientAction:", error);
-    return {
-      success: false,
-      error: error.message || "Error interno al registrar el cliente.",
-    };
+    console.error("Error in updateClientAction:", error);
+    return { success: false, error: error.message || "Error al actualizar cliente" };
+  }
+}
+
+export async function toggleClientStatusAction(id: string, currentStatus: boolean) {
+  try {
+    const client = await db.client.update({
+      where: { id },
+      data: {
+        active: !currentStatus
+      }
+    });
+
+    revalidatePath("/clientes");
+    return { success: true, client };
+  } catch (error: any) {
+    console.error("Error in toggleClientStatusAction:", error);
+    return { success: false, error: error.message || "Error al cambiar estado del cliente" };
   }
 }
