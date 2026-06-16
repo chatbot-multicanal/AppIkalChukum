@@ -32,6 +32,14 @@ interface Client {
   name: string;
   city: string;
   country: string;
+  company?: string | null;
+  contact?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  receptionSchedule?: string | null;
 }
 
 interface QuoteItemInput {
@@ -65,12 +73,78 @@ export default function NuevaCotizacionPage() {
   // Modal State for New Client
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
+  const [newClientCompany, setNewClientCompany] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientAddress, setNewClientAddress] = useState("");
+  const [newClientState, setNewClientState] = useState("");
+  const [newClientZip, setNewClientZip] = useState("");
   const [newClientCity, setNewClientCity] = useState("");
   const [newClientCountry, setNewClientCountry] = useState("México");
   const [newClientContact, setNewClientContact] = useState("");
-  const [newClientAddress, setNewClientAddress] = useState("");
+  const [newClientReceptionSchedule, setNewClientReceptionSchedule] = useState("");
+
+  // Shippo State
+  const [shippingRates, setShippingRates] = useState<any[]>([]);
+  const [loadingRates, setLoadingRates] = useState(false);
+  const [selectedRateId, setSelectedRateId] = useState("");
+  const [shippingCost, setShippingCost] = useState(0);
+  const [shippoError, setShippoError] = useState<string | null>(null);
+
+  // Reset rates on client or warehouse changes
+  useEffect(() => {
+    setShippingRates([]);
+    setShippingCost(0);
+    setSelectedRateId("");
+    setShippoError(null);
+  }, [clientId, warehouseId]);
+
+  const totalKits = items.reduce((acc, item) => acc + (item.quantity || 0), 0);
+
+  const handleFetchShippingRates = async () => {
+    if (!clientId || !warehouseId) {
+      alert("Por favor selecciona un cliente y una bodega de despacho.");
+      return;
+    }
+    setLoadingRates(true);
+    setShippoError(null);
+    setShippingRates([]);
+    try {
+      const response = await fetch("/api/shipping/rates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originWarehouseId: warehouseId,
+          destinationClientId: clientId,
+          kitsCount: totalKits
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Error al obtener tarifas de Shippo");
+      }
+      setShippingRates(data.rates || []);
+      if (data.rates && data.rates.length > 0) {
+        setSelectedRateId(data.rates[0].object_id);
+        setShippingCost(parseFloat(data.rates[0].amount) || 0);
+      } else {
+        setShippingCost(0);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setShippoError(err.message);
+    } finally {
+      setLoadingRates(false);
+    }
+  };
+
+  const handleRateSelect = (rateId: string) => {
+    setSelectedRateId(rateId);
+    const rate = shippingRates.find(r => r.object_id === rateId);
+    if (rate) {
+      setShippingCost(parseFloat(rate.amount) || 0);
+    }
+  };
 
   // Load configuration from API on mount
   useEffect(() => {
@@ -178,12 +252,16 @@ export default function NuevaCotizacionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newClientName,
+          company: newClientCompany,
           contact: newClientContact,
           email: newClientEmail,
           phone: newClientPhone,
           address: newClientAddress,
+          state: newClientState,
+          zip: newClientZip,
           city: newClientCity,
-          country: newClientCountry
+          country: newClientCountry,
+          receptionSchedule: newClientReceptionSchedule
         })
       });
 
@@ -196,11 +274,15 @@ export default function NuevaCotizacionPage() {
       
       // Reset Modal Form
       setNewClientName("");
+      setNewClientCompany("");
       setNewClientEmail("");
       setNewClientPhone("");
+      setNewClientAddress("");
+      setNewClientState("");
+      setNewClientZip("");
       setNewClientCity("");
       setNewClientContact("");
-      setNewClientAddress("");
+      setNewClientReceptionSchedule("");
       setIsClientModalOpen(false);
 
       alert("Cliente creado y seleccionado automáticamente.");
@@ -211,8 +293,9 @@ export default function NuevaCotizacionPage() {
 
   // Calculations
   const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-  const tax = subtotal * 0.16;
-  const total = subtotal + tax;
+  const baseSubtotal = subtotal + shippingCost;
+  const tax = baseSubtotal * 0.16;
+  const total = baseSubtotal + tax;
 
   // Submit Quote Creation
   const handleSubmit = async (e: React.FormEvent) => {
@@ -238,6 +321,7 @@ export default function NuevaCotizacionPage() {
           warehouseId,
           currency,
           exchangeRate,
+          shippingCost,
           items: items.map(it => ({
             productId: it.productId,
             quantity: it.quantity,
@@ -384,6 +468,93 @@ export default function NuevaCotizacionPage() {
 
             </div>
 
+            {/* selectedClient card & Shippo cotizador */}
+            {clientId && (
+              (() => {
+                const selectedClient = clients.find(c => c.id === clientId);
+                if (!selectedClient) return null;
+                return (
+                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", marginTop: "10px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div style={{ background: "rgba(255,255,255,0.01)", padding: "16px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
+                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-sage)", marginBottom: "8px" }}>📦 Dirección de Envío y Datos del Cliente:</h4>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                        <div><strong>Nombre/Contacto:</strong> {selectedClient.name} {selectedClient.contact ? `(${selectedClient.contact})` : ""}</div>
+                        <div><strong>Empresa:</strong> {selectedClient.company || "N/A"}</div>
+                        <div><strong>Teléfono:</strong> {selectedClient.phone || "N/A"}</div>
+                        <div><strong>Correo:</strong> {selectedClient.email || "N/A"}</div>
+                        <div style={{ gridColumn: "1 / -1" }}><strong>Dirección:</strong> {selectedClient.address || "N/A"}, {selectedClient.city}, {selectedClient.state || ""}, {selectedClient.country} {selectedClient.zip ? `(CP: ${selectedClient.zip})` : ""}</div>
+                        <div style={{ gridColumn: "1 / -1" }}><strong>Horario de Recepción:</strong> {selectedClient.receptionSchedule || "N/A"}</div>
+                      </div>
+                    </div>
+
+                    {warehouseId && (
+                      <div>
+                        <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
+                        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
+                          <button
+                            type="button"
+                            onClick={handleFetchShippingRates}
+                            disabled={loadingRates}
+                            className="btn-premium btn-secondary-sage"
+                            style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto" }}
+                          >
+                            {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
+                          </button>
+                          {shippingRates.length > 0 && (
+                            <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
+                              ✓ {shippingRates.length} tarifa(s) cargada(s)
+                            </span>
+                          )}
+                        </div>
+
+                        {shippoError && (
+                          <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: "12px" }}>
+                            ⚠️ Error al cotizar: {shippoError}
+                          </div>
+                        )}
+
+                        {shippingRates.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                              Selecciona la paquetería de envío:
+                            </label>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                              {shippingRates.map((r: any) => {
+                                const isSelected = selectedRateId === r.object_id;
+                                return (
+                                  <div
+                                    key={r.object_id}
+                                    onClick={() => handleRateSelect(r.object_id)}
+                                    style={{
+                                      padding: "12px",
+                                      borderRadius: "8px",
+                                      border: `1px solid ${isSelected ? "var(--primary-teal)" : "var(--border-color)"}`,
+                                      background: isSelected ? "rgba(29, 128, 136, 0.08)" : "rgba(255,255,255,0.01)",
+                                      cursor: "pointer",
+                                      transition: "all 0.2s ease"
+                                    }}
+                                  >
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.8rem", color: isSelected ? "var(--primary-teal)" : "#ffffff" }}>
+                                      <span>{r.provider}</span>
+                                      <span>${parseFloat(r.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {r.currency}</span>
+                                    </div>
+                                    <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                                      Servicio: {r.servicelevel}<br />
+                                      Entrega estimada: ~{r.estimated_days} días
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+
           </div>
 
           {/* Products List Card */}
@@ -513,9 +684,15 @@ export default function NuevaCotizacionPage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Subtotal:</span>
+                <span style={{ color: "var(--text-secondary)" }}>Subtotal Productos:</span>
                 <span style={{ fontWeight: 600 }}>${subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
               </div>
+              {shippingCost > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Costo de Envío:</span>
+                  <span style={{ fontWeight: 600 }}>${shippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
                 <span style={{ color: "var(--text-secondary)" }}>IVA (16%):</span>
                 <span style={{ fontWeight: 600 }}>${tax.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
@@ -571,7 +748,7 @@ export default function NuevaCotizacionPage() {
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div className="modal-row">
                 <div>
                   <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Contacto</label>
                   <input 
@@ -582,6 +759,18 @@ export default function NuevaCotizacionPage() {
                   />
                 </div>
                 <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Nombre Empresa</label>
+                  <input 
+                    type="text" 
+                    value={newClientCompany} 
+                    onChange={(e) => setNewClientCompany(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+              </div>
+
+              <div className="modal-row">
+                <div>
                   <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Teléfono</label>
                   <input 
                     type="text" 
@@ -590,19 +779,18 @@ export default function NuevaCotizacionPage() {
                     style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
                   />
                 </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Correo Electrónico</label>
+                  <input 
+                    type="email" 
+                    value={newClientEmail} 
+                    onChange={(e) => setNewClientEmail(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
               </div>
 
-              <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Correo Electrónico</label>
-                <input 
-                  type="email" 
-                  value={newClientEmail} 
-                  onChange={(e) => setNewClientEmail(e.target.value)} 
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
-                />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div className="modal-row">
                 <div>
                   <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Ciudad *</label>
                   <input 
@@ -627,12 +815,46 @@ export default function NuevaCotizacionPage() {
                 </div>
               </div>
 
+              <div className="modal-row">
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Estado</label>
+                  <input 
+                    type="text" 
+                    placeholder="ej. Yucatán"
+                    value={newClientState} 
+                    onChange={(e) => setNewClientState(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Código Postal</label>
+                  <input 
+                    type="text" 
+                    placeholder="ej. 97000"
+                    value={newClientZip} 
+                    onChange={(e) => setNewClientZip(e.target.value)} 
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                  />
+                </div>
+              </div>
+
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Dirección</label>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Dirección (Calle, Número)</label>
                 <input 
                   type="text" 
                   value={newClientAddress} 
                   onChange={(e) => setNewClientAddress(e.target.value)} 
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "6px" }}>Horario de Recepción</label>
+                <input 
+                  type="text" 
+                  placeholder="ej. Lunes a Viernes 9:00 AM - 5:00 PM"
+                  value={newClientReceptionSchedule} 
+                  onChange={(e) => setNewClientReceptionSchedule(e.target.value)} 
                   style={{ width: "100%", padding: "10px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white" }} 
                 />
               </div>

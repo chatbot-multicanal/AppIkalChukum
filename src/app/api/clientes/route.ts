@@ -18,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { name, contact, email, phone, address, city, country } = data;
+    const { name, company, contact, email, phone, address, state, zip, city, country, receptionSchedule } = data;
 
     if (!name || !city || !country) {
       return NextResponse.json({ error: "Nombre, Ciudad y País son requeridos" }, { status: 400 });
@@ -27,12 +27,16 @@ export async function POST(request: Request) {
     const client = await db.client.create({
       data: {
         name,
+        company,
         contact,
         email,
         phone,
         address,
+        state,
+        zip,
         city,
-        country
+        country,
+        receptionSchedule
       }
     });
 

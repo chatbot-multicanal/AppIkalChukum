@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { sendOrderStatusNotification } from "@/lib/mail";
 
 /**
  * Fetches all orders, populated with quotes, items, client, and warehouse details.
@@ -73,12 +74,13 @@ export async function updateOrderStatusAction(
   warehouseId?: string
 ) {
   try {
-    // Validar autorización a nivel backend (Solo ADMIN o GERENTE pueden cambiar estados de pedidos)
+    // Validar autorización a nivel backend (Solo ADMIN, GERENTE o BODEGA (para SHIPPED) pueden cambiar estados de pedidos)
     const cookieStore = await cookies();
     const userRole = cookieStore.get("user_role")?.value;
 
-    if (userRole !== "ADMIN" && userRole !== "GERENTE") {
-      throw new Error("No autorizado. Solo administradores o gerentes pueden modificar pedidos.");
+    const isBodegaShipped = userRole === "BODEGA" && newStatus === "SHIPPED";
+    if (userRole !== "ADMIN" && userRole !== "GERENTE" && !isBodegaShipped) {
+      throw new Error("No autorizado. Solo administradores o gerentes pueden modificar pedidos, o encargado de bodega para dar salida.");
     }
 
     // 1. Fetch current order with items
@@ -437,6 +439,29 @@ export async function updateOrderStatusAction(
       });
     });
 
+    // Enviar notificación por correo de forma asíncrona
+    try {
+      const updatedOrder = await db.order.findUnique({
+        where: { id: orderId },
+        include: {
+          warehouse: true,
+          quote: {
+            include: {
+              client: true
+            }
+          }
+        }
+      });
+      if (updatedOrder) {
+        // Ejecutar envío de correo sin bloquear la respuesta de la UI
+        sendOrderStatusNotification(updatedOrder, order.status, newStatus).catch(err => {
+          console.error("Error al enviar correo en background:", err);
+        });
+      }
+    } catch (mailError) {
+      console.error("Error al preparar notificación por correo:", mailError);
+    }
+
     // 4. Revalidar vistas
     revalidatePath("/pedidos");
     revalidatePath("/inventario");
@@ -454,3 +479,63 @@ export async function updateOrderStatusAction(
     };
   }
 }
+
+/**
+ * Acknowledges receipt of a pending/preparing order in warehouse by setting acknowledgedAt.
+ */
+export async function acknowledgeOrderAction(orderId: string) {
+  try {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get("user_session")?.value;
+    const userRole = cookieStore.get("user_role")?.value;
+
+    if (!userId || (userRole !== "BODEGA" && userRole !== "ADMIN" && userRole !== "GERENTE")) {
+      throw new Error("No autorizado. Solo encargado de bodega o administrador puede confirmar recepción.");
+    }
+
+    const order = await db.order.findUnique({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new Error("El pedido solicitado no existe.");
+    }
+
+    const acknowledgedAt = new Date();
+
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        acknowledgedAt,
+        acknowledgedById: userId,
+      }
+    });
+
+    // Crear registro en la bitácora de auditoría
+    await db.auditLog.create({
+      data: {
+        entity: "Order",
+        entityId: orderId,
+        action: "ACKNOWLEDGE",
+        details: JSON.stringify({
+          userId,
+          acknowledgedAt,
+        }),
+      },
+    });
+
+    revalidatePath("/pedidos");
+    revalidatePath("/");
+
+    return {
+      success: true,
+    };
+  } catch (error: any) {
+    console.error("Error in acknowledgeOrderAction:", error);
+    return {
+      success: false,
+      error: error.message || "Error al confirmar recepción del pedido.",
+    };
+  }
+}
+

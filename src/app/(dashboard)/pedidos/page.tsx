@@ -6,6 +6,14 @@ import { cookies } from "next/headers";
 export default async function PedidosPage() {
   const cookieStore = await cookies();
   const userRole = cookieStore.get("user_role")?.value || "VENDEDOR";
+  const userId = cookieStore.get("user_session")?.value;
+
+  // Obtener warehouseId del usuario actual
+  const user = userId ? await db.user.findUnique({
+    where: { id: userId },
+    select: { warehouseId: true }
+  }) : null;
+  const userWarehouseId = user?.warehouseId || null;
 
   // 1. Obtener todos los pedidos con sus cotizaciones, clientes, e ítems
   const orders = await db.order.findMany({
@@ -46,7 +54,12 @@ export default async function PedidosPage() {
       </div>
 
       {/* Renderizar el tablero Kanban interactivo del cliente */}
-      <PedidosClient initialOrders={orders} initialWarehouses={warehouses} userRole={userRole} />
+      <PedidosClient 
+        initialOrders={orders} 
+        initialWarehouses={warehouses} 
+        userRole={userRole} 
+        userWarehouseId={userWarehouseId} 
+      />
     </main>
   );
 }

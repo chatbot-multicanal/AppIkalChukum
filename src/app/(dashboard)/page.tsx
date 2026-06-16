@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { db } from "@/lib/db";
 import Link from "next/link";
+import { cookies } from "next/headers";
 
 interface LogDetails {
   sku?: string;
@@ -71,6 +72,326 @@ function formatTimeAgo(date: Date): string {
 
 export default async function Home() {
   const LOW_STOCK_THRESHOLD = 15.0;
+
+  const cookieStore = await cookies();
+  const userRole = cookieStore.get("user_role")?.value || "VENDEDOR";
+  const userId = cookieStore.get("user_session")?.value;
+
+  // Si el usuario es BODEGA, cargamos la información de su bodega
+  const user = userId
+    ? await db.user.findUnique({
+        where: { id: userId },
+        include: { warehouse: true },
+      })
+    : null;
+
+  const userWarehouseId = user?.warehouseId;
+  const userWarehouseName = user?.warehouse?.name || "Todas las Bodegas";
+
+  if (userRole === "BODEGA") {
+    // ----------------------------------------------------
+    // PANEL EXCLUSIVO PARA ROL DE BODEGA
+    // ----------------------------------------------------
+
+    // 1. Pedidos por preparar o listos en esta bodega
+    const pendingOrdersCount = await db.order.count({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+        status: { in: ["PENDING", "PREPARING"] },
+      },
+    });
+
+    // 2. Pedidos ya enviados / despachados por esta bodega
+    const shippedOrdersCount = await db.order.count({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+        status: "SHIPPED",
+      },
+    });
+
+    // 3. Alertas de bajo inventario en esta bodega
+    const lowStockCount = await db.inventory.count({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+        quantity: { lt: LOW_STOCK_THRESHOLD },
+      },
+    });
+
+    // 4. Obtener pedidos pendientes específicos para esta bodega
+    const recentOrders = await db.order.findMany({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+        status: { in: ["PENDING", "PREPARING", "SHIPPED"] },
+      },
+      take: 6,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        quote: {
+          include: {
+            client: true,
+          },
+        },
+      },
+    });
+
+    // 5. Encontrar el artículo con el stock más bajo en esta bodega
+    const criticalStockItem = await db.inventory.findFirst({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+        quantity: { lt: LOW_STOCK_THRESHOLD },
+      },
+      include: {
+        product: true,
+        warehouse: true,
+      },
+      orderBy: { quantity: "asc" },
+    });
+
+    // 6. Obtener comentarios recientes de esta bodega o generales
+    const recentComments = await db.comment.findMany({
+      where: {
+        warehouseId: userWarehouseId || undefined,
+      },
+      take: 5,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { name: true, role: true },
+        },
+        product: {
+          select: { name: true, sku: true },
+        },
+      },
+    });
+
+    return (
+      <main className="main-content animate-fade-in">
+        {/* Top Header */}
+        <div className="page-header">
+          <div>
+            <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
+              Control de Bodega
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 500 }}>
+              Encargado de: <strong style={{ color: 'var(--primary-sage)' }}>{userWarehouseName}</strong>. Gestión de almacén y despachos.
+            </p>
+          </div>
+          <div className="page-header-actions">
+            <Link href="/inventario" style={{ textDecoration: 'none' }}>
+              <button className="btn-premium btn-secondary-sage">
+                Revisar Inventario
+              </button>
+            </Link>
+            <Link href="/pedidos" style={{ textDecoration: 'none' }}>
+              <button className="btn-premium btn-primary-teal">
+                Despachar Pedidos
+              </button>
+            </Link>
+          </div>
+        </div>
+
+        {/* KPI Cards Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+          
+          {/* Metric 1 */}
+          <div className="glass-card" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Por Preparar / Surtir</span>
+              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(29, 128, 136, 0.1)', color: 'var(--primary-teal)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+              </div>
+            </div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px', letterSpacing: '-1px' }}>
+              {pendingOrdersCount}
+            </div>
+            <span style={{ fontSize: '0.85rem', color: 'var(--primary-sage)', fontWeight: 600 }}>
+              Requieren atención en Kanban
+            </span>
+          </div>
+
+          {/* Metric 2 */}
+          <div className="glass-card" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Enviados / En Camino</span>
+              <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(164, 189, 145, 0.15)', color: 'var(--primary-sage)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              </div>
+            </div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px', letterSpacing: '-1px' }}>
+              {shippedOrdersCount}
+            </div>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+              Salidas físicas registradas
+            </span>
+          </div>
+
+          {/* Metric 3 */}
+          <div className="glass-card" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stock Bajo Mínimo</span>
+              <div style={{ padding: '8px', borderRadius: '10px', background: lowStockCount > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(164, 189, 145, 0.15)', color: lowStockCount > 0 ? '#ef4444' : 'var(--primary-sage)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+              </div>
+            </div>
+            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: lowStockCount > 0 ? '#ef4444' : '#ffffff', marginBottom: '8px', letterSpacing: '-1px' }}>
+              {lowStockCount}
+            </div>
+            <span style={{ fontSize: '0.85rem', color: lowStockCount > 0 ? '#ef4444' : 'var(--text-secondary)', fontWeight: 600 }}>
+              {lowStockCount > 0 ? "Requiere reabastecimiento" : "Niveles saludables"}
+            </span>
+          </div>
+
+        </div>
+
+        {/* Main Grid: Orders & Comments */}
+        <div className="dashboard-grid">
+          
+          {/* Recent Orders in Warehouse */}
+          <div className="glass-card" style={{ padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-main)', letterSpacing: '-0.3px' }}>
+                Pedidos en Almacén
+              </h2>
+              <Link href="/pedidos" style={{ color: 'var(--primary-teal)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                Ver Kanban →
+              </Link>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="premium-table">
+                <thead>
+                  <tr>
+                    <th>No. Pedido</th>
+                    <th>Cliente</th>
+                    <th>Destino</th>
+                    <th>Estado</th>
+                    <th>Visto en Bodega</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                        No hay pedidos activos asignados a esta bodega.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentOrders.map((order) => {
+                      const quoteNumber = order.quote?.quoteNumber || "N/A";
+                      const clientName = order.quote?.client?.name || "Desconocido";
+                      const city = order.quote?.client?.city || "N/A";
+                      
+                      return (
+                        <tr key={order.id}>
+                          <td style={{ fontWeight: 600, color: '#ffffff' }}>{quoteNumber}</td>
+                          <td>{clientName}</td>
+                          <td>{city}</td>
+                          <td>
+                            <span className={`badge ${
+                              order.status === "PENDING" ? "badge-draft" :
+                              order.status === "PREPARING" ? "badge-pending" :
+                              order.status === "SHIPPED" ? "badge-approved" :
+                              "badge-approved"
+                            }`}>
+                              {order.status === "PENDING" ? "Por Procesar" :
+                               order.status === "PREPARING" ? "Surtido / Prep." :
+                               order.status === "SHIPPED" ? "En Camino" :
+                               order.status}
+                            </span>
+                          </td>
+                          <td>
+                            {order.acknowledgedAt ? (
+                              <span style={{ color: "var(--primary-sage)", fontSize: "0.85rem", fontWeight: 600 }}>
+                                ✓ Enterado ({new Date(order.acknowledgedAt).toLocaleDateString("es-MX", { day: '2-digit', month: 'short' })})
+                              </span>
+                            ) : (
+                              <span style={{ color: "#ef4444", fontSize: "0.85rem", fontWeight: 600 }}>
+                                ⌛ Pendiente
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Alerts and Comments panel */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            {criticalStockItem ? (
+              <div className="glass-card" style={{ padding: '24px', borderLeft: '4px solid #ef4444' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ef4444', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Alerta Crítica de Almacén
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', marginBottom: '12px' }}>
+                  El producto <strong>{criticalStockItem.product.name}</strong> tiene stock crítico de <strong>{criticalStockItem.quantity.toFixed(1)} Kits</strong> en tu bodega.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Link 
+                    href="/inventario" 
+                    style={{ color: 'var(--text-main)', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    Ver Detalles →
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="glass-card" style={{ padding: '24px', borderLeft: '4px solid var(--primary-sage)' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary-sage)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Surtido Completo
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  No hay productos por debajo del umbral mínimo de seguridad en tu almacén.
+                </p>
+              </div>
+            )}
+
+            {/* Warehouse Comments list */}
+            <div className="glass-card" style={{ padding: '24px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '16px' }}>
+                Comentarios en mi Bodega
+              </h3>
+              
+              {recentComments.length === 0 ? (
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '10px 0' }}>
+                  No hay comentarios en esta bodega todavía. Ve a la sección de Inventario para dejar notas.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {recentComments.map((comment) => (
+                    <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem', borderBottom: '1px solid rgba(255,255,255,0.02)', paddingBottom: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--primary-sage)' }}>{comment.user.name} ({comment.user.role})</span>
+                        <span>{formatTimeAgo(comment.createdAt)}</span>
+                      </div>
+                      {comment.product && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--primary-teal)', fontWeight: 500 }}>
+                          Producto: {comment.product.name} ({comment.product.sku})
+                        </div>
+                      )}
+                      <p style={{ color: 'var(--text-main)', margin: '2px 0 0 0', fontStyle: 'italic' }}>
+                        "{comment.content}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+        </div>
+      </main>
+    );
+  }
+
+  // ----------------------------------------------------
+  // PANEL ADMINISTRADOR / GERENTE / VENDEDOR (ORIGINAL)
+  // ----------------------------------------------------
 
   // 1. Cotizaciones pendientes (Borradores y Enviadas)
   const pendingQuotesCount = await db.quote.count({

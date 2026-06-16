@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { clientId, warehouseId, currency, exchangeRate, items } = data;
+    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost } = data;
 
     // VALIDACIÓN: No cotización sin al menos 1 producto
     if (!items || items.length === 0) {
@@ -54,8 +54,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const tax = subtotal * 0.16; // IVA (16%)
-    const total = subtotal + tax;
+    const shippingCost = parseFloat(shipCost || 0) || 0;
+    const baseSubtotal = subtotal + shippingCost;
+    const tax = baseSubtotal * 0.16; // IVA (16%)
+    const total = baseSubtotal + tax;
 
     // 3. Generar número de cotización
     const count = await db.quote.count();
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
           currency,
           exchangeRate: exchangeRate || 1.0,
           subtotal,
+          shippingCost,
           tax,
           total,
           items: {

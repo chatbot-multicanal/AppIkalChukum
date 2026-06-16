@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { adjustStockAction, getInventoryHistoryAction } from "./actions";
 
@@ -27,6 +27,7 @@ interface InventoryTableProps {
   warehouseName: string;
   showCost: boolean;
   isAdmin: boolean;
+  userRole?: string;
 }
 
 export default function InventoryTable({
@@ -35,9 +36,104 @@ export default function InventoryTable({
   warehouseName,
   showCost,
   isAdmin,
+  userRole = "VENDEDOR",
 }: InventoryTableProps) {
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
+
+  // Comments states
+  const [comments, setComments] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isGeneralCommentsOpen, setIsGeneralCommentsOpen] = useState(false);
+  const [commentingItem, setCommentingItem] = useState<InventoryItem | null>(null);
+
+  // Sync initialItems state when they change externally (e.g. changing warehouse filter)
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
+
+  const loadComments = async () => {
+    try {
+      const res = await fetch(`/api/inventario/comentarios?warehouseId=${warehouseId}`);
+      const data = await res.json();
+      if (data.success) {
+        setComments(data.comments || []);
+      }
+    } catch (err) {
+      console.error("Error loading comments:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadComments();
+  }, [warehouseId]);
+
+  const handleAddComment = async (productId: string | null) => {
+    if (!newCommentText.trim()) return;
+    setIsSubmittingComment(true);
+    try {
+      const res = await fetch("/api/inventario/comentarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: newCommentText,
+          warehouseId,
+          productId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewCommentText("");
+        await loadComments();
+      } else {
+        alert(data.error || "Error al agregar comentario");
+      }
+    } catch (err) {
+      console.error("Error adding comment:", err);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
+  const getProductCommentCount = (productId: string) => {
+    return comments.filter((c) => c.productId === productId).length;
+  };
+
+  const getGeneralCommentCount = () => {
+    return comments.filter((c) => !c.productId).length;
+  };
+
+  const handleExportExcel = () => {
+    import("xlsx").then((XLSX) => {
+      const dataToExport = items.map((item) => ({
+        "SKU": item.product.sku,
+        "Producto": item.product.name,
+        "Color": item.product.color || "N/A",
+        "Bodega": warehouseName,
+        "Cantidad": item.quantity,
+        "Estado": item.quantity === 0 ? "Agotado" : item.quantity < LOW_STOCK_THRESHOLD ? "Stock Bajo" : "Suficiente",
+        ...(showCost ? { "Costo Compra": item.product.costPrice } : {}),
+        "Precio Base": item.product.basePrice,
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
+
+      // Set nice column widths
+      const maxLens = Object.keys(dataToExport[0] || {}).map(key => {
+        return Math.max(
+          key.length,
+          ...dataToExport.map(row => String((row as any)[key] ?? "").length)
+        );
+      });
+      worksheet["!cols"] = maxLens.map(len => ({ wch: len + 3 }));
+
+      const fileName = `Inventario-${warehouseName.replace(/\s+/g, "_")}-${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    });
+  };
 
   // Modal states
   const [adjustingItem, setAdjustingItem] = useState<InventoryItem | null>(null);
@@ -126,9 +222,27 @@ export default function InventoryTable({
 
   return (
     <div className="glass-card" style={{ padding: "32px" }}>
-      <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--text-main)", marginBottom: "24px" }}>
-        Stock en {warehouseName}
-      </h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
+        <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--text-main)", margin: 0 }}>
+          Stock en {warehouseName}
+        </h2>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setIsGeneralCommentsOpen(true)}
+            className="btn-premium btn-secondary-sage"
+            style={{ padding: "8px 16px", fontSize: "0.85rem" }}
+          >
+            💬 Notas de Bodega ({getGeneralCommentCount()})
+          </button>
+          <button
+            onClick={handleExportExcel}
+            className="btn-premium btn-primary-teal"
+            style={{ padding: "8px 16px", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            📥 Exportar Excel
+          </button>
+        </div>
+      </div>
 
       <div style={{ overflowX: "auto" }}>
         <table className="premium-table">
@@ -141,13 +255,13 @@ export default function InventoryTable({
               <th>Precio Base</th>
               <th>Cantidad</th>
               <th>Estado</th>
-              {isAdmin && <th style={{ textAlign: "right" }}>Acciones</th>}
+              <th style={{ textAlign: "right" }}>Acciones</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6 + (showCost ? 1 : 0) + (isAdmin ? 1 : 0)} style={{ textAlign: "center", color: "var(--text-muted)", padding: "24px" }}>
+                <td colSpan={7 + (showCost ? 1 : 0)} style={{ textAlign: "center", color: "var(--text-muted)", padding: "24px" }}>
                   No hay inventario registrado en esta bodega.
                 </td>
               </tr>
@@ -190,8 +304,8 @@ export default function InventoryTable({
                         <span className="badge badge-approved">Suficiente</span>
                       )}
                     </td>
-                    {isAdmin && (
-                      <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right" }}>
+                      {isAdmin && (
                         <button
                           onClick={() => handleOpenAdjust(item)}
                           style={{
@@ -206,21 +320,35 @@ export default function InventoryTable({
                         >
                           Ajustar
                         </button>
-                        <button
-                          onClick={() => handleOpenHistory(item)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--text-muted)",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                            fontSize: "0.9rem",
-                          }}
-                        >
-                          Historial
-                        </button>
-                      </td>
-                    )}
+                      )}
+                      <button
+                        onClick={() => handleOpenHistory(item)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--text-muted)",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          marginRight: "12px",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        Historial
+                      </button>
+                      <button
+                        onClick={() => setCommentingItem(item)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--primary-sage)",
+                          cursor: "pointer",
+                          fontWeight: 600,
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        💬 Notas ({getProductCommentCount(item.productId)})
+                      </button>
+                    </td>
                   </tr>
                 );
               })
@@ -417,6 +545,128 @@ export default function InventoryTable({
               <button onClick={() => setHistoryItem(null)} style={{ ...btnCancelStyle, flex: "none", width: "120px" }}>
                 Cerrar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COMENTARIOS GENERALES DE BODEGA */}
+      {isGeneralCommentsOpen && (
+        <div style={modalBackdropStyle} onClick={() => { setIsGeneralCommentsOpen(false); setNewCommentText(""); }}>
+          <div className="modal-content-card" style={{ maxWidth: "550px", width: "95%", background: "rgba(18, 24, 38, 0.95)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "20px", padding: "30px", color: "#ffffff", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 700 }}>💬 Notas Generales: {warehouseName}</h2>
+              <button onClick={() => { setIsGeneralCommentsOpen(false); setNewCommentText(""); }} style={closeButtonStyle}>×</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px", maxHeight: "250px", overflowY: "auto", paddingRight: "6px" }}>
+              {comments.filter(c => !c.productId).length === 0 ? (
+                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: "8px", fontSize: "0.85rem" }}>
+                  No hay notas generales registradas.
+                </div>
+              ) : (
+                comments.filter(c => !c.productId).map(c => (
+                  <div key={c.id} style={{ padding: "12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "10px", fontSize: "0.85rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "var(--primary-sage)", fontWeight: 600, fontSize: "0.75rem", marginBottom: "4px" }}>
+                      <span>{c.user.name} ({c.user.role})</span>
+                      <span style={{ color: "var(--text-muted)" }}>{new Date(c.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <p style={{ margin: 0, color: "#ffffff", whiteSpace: "pre-wrap" }}>{c.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={labelStyle}>Escribir nueva nota/comentario general</label>
+              <textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder="Escribe aquí notas sobre recepción, faltantes o avisos de la bodega..."
+                style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }}
+                disabled={isSubmittingComment}
+              />
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsGeneralCommentsOpen(false); setNewCommentText(""); }}
+                  style={btnCancelStyle}
+                  disabled={isSubmittingComment}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddComment(null)}
+                  style={btnSubmitStyle}
+                  disabled={isSubmittingComment || !newCommentText.trim()}
+                >
+                  {isSubmittingComment ? "Enviando..." : "Guardar Nota"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COMENTARIOS DE PRODUCTO INDIVIDUAL */}
+      {commentingItem && (
+        <div style={modalBackdropStyle} onClick={() => { setCommentingItem(null); setNewCommentText(""); }}>
+          <div className="modal-content-card" style={{ maxWidth: "550px", width: "95%", background: "rgba(18, 24, 38, 0.95)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "20px", padding: "30px", color: "#ffffff", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
+            <div style={modalHeaderStyle}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700 }}>💬 Notas: {commentingItem.product.name}</h2>
+              <button onClick={() => { setCommentingItem(null); setNewCommentText(""); }} style={closeButtonStyle}>×</button>
+            </div>
+
+            <div style={{ marginBottom: "16px", background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "8px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+              SKU: {commentingItem.product.sku} | Bodega: {warehouseName} | Stock: {commentingItem.quantity.toFixed(1)} sacos/bidones
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px", maxHeight: "250px", overflowY: "auto", paddingRight: "6px" }}>
+              {comments.filter(c => c.productId === commentingItem.productId).length === 0 ? (
+                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px", border: "1px dashed rgba(255,255,255,0.06)", borderRadius: "8px", fontSize: "0.85rem" }}>
+                  No hay comentarios sobre este producto en esta bodega.
+                </div>
+              ) : (
+                comments.filter(c => c.productId === commentingItem.productId).map(c => (
+                  <div key={c.id} style={{ padding: "12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", borderRadius: "10px", fontSize: "0.85rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "var(--primary-sage)", fontWeight: 600, fontSize: "0.75rem", marginBottom: "4px" }}>
+                      <span>{c.user.name} ({c.user.role})</span>
+                      <span style={{ color: "var(--text-muted)" }}>{new Date(c.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <p style={{ margin: 0, color: "#ffffff", whiteSpace: "pre-wrap" }}>{c.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label style={labelStyle}>Agregar nota o reporte para este producto</label>
+              <textarea
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                placeholder="Escribe observaciones de empaque, daños, mermas o lotes..."
+                style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }}
+                disabled={isSubmittingComment}
+              />
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => { setCommentingItem(null); setNewCommentText(""); }}
+                  style={btnCancelStyle}
+                  disabled={isSubmittingComment}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddComment(commentingItem.productId)}
+                  style={btnSubmitStyle}
+                  disabled={isSubmittingComment || !newCommentText.trim()}
+                >
+                  {isSubmittingComment ? "Enviando..." : "Guardar Nota"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { 
   getOrdersAction, 
   getActiveWarehousesAction, 
-  updateOrderStatusAction 
+  updateOrderStatusAction,
+  acknowledgeOrderAction
 } from "./actions";
 
 interface Warehouse {
@@ -29,6 +30,7 @@ interface Order {
   status: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED";
   scheduledDeliveryAt: string | null;
   deliveredAt: string | null;
+  acknowledgedAt?: string | null;
   createdAt: string;
   warehouse: Warehouse | null;
   quote: {
@@ -46,9 +48,10 @@ interface PedidosClientProps {
   initialOrders: any[];
   initialWarehouses: any[];
   userRole: string;
+  userWarehouseId: string | null;
 }
 
-export default function PedidosClient({ initialOrders, initialWarehouses, userRole }: PedidosClientProps) {
+export default function PedidosClient({ initialOrders, initialWarehouses, userRole, userWarehouseId }: PedidosClientProps) {
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>(initialOrders as any);
@@ -84,7 +87,8 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     newStatus: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED",
     warehouseId?: string
   ) => {
-    if (!canModify) {
+    const isBodegaShipped = userRole === "BODEGA" && newStatus === "SHIPPED";
+    if (!canModify && !isBodegaShipped) {
       alert("No tienes permisos para modificar pedidos.");
       return;
     }
@@ -100,12 +104,28 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     setUpdatingId(null);
   };
 
+  const handleAcknowledge = async (orderId: string) => {
+    setUpdatingId(orderId);
+    const res = await acknowledgeOrderAction(orderId);
+    if (res.success) {
+      await loadData();
+    } else {
+      alert("Error al confirmar recepción: " + res.error);
+    }
+    setUpdatingId(null);
+  };
+
+  // Filter orders by warehouse for BODEGA role
+  const filteredOrders = userRole === "BODEGA" && userWarehouseId
+    ? orders.filter(o => o.warehouseId === userWarehouseId)
+    : orders;
+
   // Group orders by columns
-  const pendingOrders = orders.filter(o => o.status === "PENDING");
-  const preparingOrders = orders.filter(o => o.status === "PREPARING");
-  const shippedOrders = orders.filter(o => o.status === "SHIPPED");
-  const deliveredOrders = orders.filter(o => o.status === "DELIVERED");
-  const cancelledOrders = orders.filter(o => o.status === "CANCELLED");
+  const pendingOrders = filteredOrders.filter(o => o.status === "PENDING");
+  const preparingOrders = filteredOrders.filter(o => o.status === "PREPARING");
+  const shippedOrders = filteredOrders.filter(o => o.status === "SHIPPED");
+  const deliveredOrders = filteredOrders.filter(o => o.status === "DELIVERED");
+  const cancelledOrders = filteredOrders.filter(o => o.status === "CANCELLED");
 
   const columns = [
     {
@@ -219,45 +239,111 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
       title: "En Preparación / Picking",
       color: "var(--primary-teal)",
       orders: preparingOrders,
-      actionButton: (order: Order) => (
-        canModify && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-            <button
-              onClick={() => handleUpdateStatus(order.id, "SHIPPED")}
-              disabled={updatingId === order.id}
-              style={{
-                flex: 1,
-                background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                color: '#ffffff',
-                padding: '8px 12px',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              Listo para Envío
-            </button>
-            <button
-              onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
-              disabled={updatingId === order.id}
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: '8px',
-                color: '#ef4444',
-                padding: '8px 12px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              Cancelar
-            </button>
-          </div>
-        )
-      )
+      actionButton: (order: Order) => {
+        const isBodega = userRole === "BODEGA";
+        
+        if (isBodega) {
+          if (!order.acknowledgedAt) {
+            return (
+              <div style={{ display: 'flex', marginTop: '12px' }}>
+                <button
+                  onClick={() => handleAcknowledge(order.id)}
+                  disabled={updatingId === order.id}
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, var(--primary-teal) 0%, #156066 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Confirmar Recepción (Enterado)
+                </button>
+              </div>
+            );
+          } else {
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary-sage)', fontWeight: 600, textAlign: 'center' }}>
+                  ✓ Enterado
+                </span>
+                <button
+                  onClick={() => handleUpdateStatus(order.id, "SHIPPED")}
+                  disabled={updatingId === order.id}
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Dar Salida (Despachar)
+                </button>
+              </div>
+            );
+          }
+        }
+        
+        return (
+          canModify && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '12px' }}>
+              {order.acknowledgedAt ? (
+                <span style={{ fontSize: '0.75rem', color: 'var(--primary-sage)', fontWeight: 600, textAlign: 'center', marginBottom: '4px' }}>
+                  ✓ Recibido en Bodega
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '4px' }}>
+                  ⌛ Esperando recepción en bodega
+                </span>
+              )}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => handleUpdateStatus(order.id, "SHIPPED")}
+                  disabled={updatingId === order.id}
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Listo para Envío
+                </button>
+                <button
+                  onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
+                  disabled={updatingId === order.id}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    borderRadius: '8px',
+                    color: '#ef4444',
+                    padding: '8px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )
+        );
+      }
     },
     {
       id: "SHIPPED" as const,

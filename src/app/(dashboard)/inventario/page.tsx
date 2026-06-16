@@ -141,6 +141,7 @@ export default async function InventarioPage({
         warehouseName={selectedWh.name} 
         showCost={showCost} 
         isAdmin={isAdmin} 
+        userRole={userRole}
       />
     </main>
   );
