@@ -158,15 +158,15 @@ async function main() {
   // 5. Crear Productos (Kits de Chukum, Sacos y Bidón con precios reales)
   const productsData = [
     // Kits de Venta
-    { sku: "KIT-NAT-001", name: "Kit Natural", description: "Kit base acabado natural", color: "Natural", basePrice: 1200.0, costPrice: 805.0 },
+    { sku: "KIT-NAT-001", name: "Kit Natural", description: "Kit base acabado natural", color: "Natural", basePrice: 1300.0, costPrice: 805.0 },
     { sku: "KIT-GRS-002", name: "Kit Gris", description: "Kit base color gris", color: "Gris", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-PDR-003", name: "Kit Palo de Rosa", description: "Kit base color palo de rosa", color: "Palo de Rosa", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-AZM-004", name: "Kit Azul Maya", description: "Kit base color azul maya", color: "Azul Maya", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-VJD-005", name: "Kit Verde Jade", description: "Kit base color verde jade", color: "Verde Jade", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-AMH-006", name: "Kit Amarillo Hacienda", description: "Kit base color amarillo hacienda", color: "Amarillo Hacienda", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-PXR-007", name: "Kit Pixoy Rojo", description: "Kit base color rojo pixoy", color: "Rojo Pixoy", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-NGR-008", name: "Kit Negro", description: "Kit base color negro", color: "Negro", basePrice: 1300.0, costPrice: 850.0 },
-    { sku: "KIT-TRA-009", name: "Kit Tierra", description: "Kit base color pigmento terra", color: "Tierra", basePrice: 1300.0, costPrice: 850.0 },
+    { sku: "KIT-PDR-003", name: "Kit Palo de Rosa", description: "Kit base color palo de rosa", color: "Palo de Rosa", basePrice: 1350.0, costPrice: 850.0 },
+    { sku: "KIT-AZM-004", name: "Kit Azul Maya", description: "Kit base color azul maya", color: "Azul Maya", basePrice: 1350.0, costPrice: 850.0 },
+    { sku: "KIT-VJD-005", name: "Kit Verde Jade", description: "Kit base color verde jade", color: "Verde Jade", basePrice: 1350.0, costPrice: 850.0 },
+    { sku: "KIT-AMH-006", name: "Kit Amarillo Hacienda", description: "Kit base color amarillo hacienda", color: "Amarillo Hacienda", basePrice: 1350.0, costPrice: 850.0 },
+    { sku: "KIT-PXR-007", name: "Kit Pixoy Rojo", description: "Kit base color rojo pixoy", color: "Rojo Pixoy", basePrice: 1400.0, costPrice: 850.0 },
+    { sku: "KIT-NGR-008", name: "Kit Negro", description: "Kit base color negro", color: "Negro", basePrice: 1500.0, costPrice: 850.0 },
+    { sku: "KIT-TRA-009", name: "Kit Tierra", description: "Kit base color pigmento terra", color: "Tierra", basePrice: 1500.0, costPrice: 850.0 },
 
     // Componentes de Sacos (físicos en bodega)
     { sku: "SACO-NAT-001", name: "Saco Natural", description: "Saco de mezcla base natural", color: "Natural", basePrice: 370.0, costPrice: 270.0 },

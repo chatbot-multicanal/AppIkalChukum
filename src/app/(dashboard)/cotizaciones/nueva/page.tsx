@@ -177,6 +177,47 @@ export default function NuevaCotizacionPage() {
     loadData();
   }, []);
 
+  // Helper to get default prices for 2026 based on warehouse location
+  const getDefaultPrice = (sku: string, isMiami: boolean, originalBasePrice: number): number => {
+    if (isMiami) {
+      switch (sku) {
+        case "KIT-NAT-001":
+        case "KIT-GRS-002":
+          return 300.0;
+        case "KIT-PDR-003":
+        case "KIT-AZM-004":
+        case "KIT-VJD-005":
+        case "KIT-AMH-006":
+          return 350.0;
+        case "KIT-PXR-007":
+          return 400.0;
+        case "KIT-NGR-008":
+        case "KIT-TRA-009":
+          return 450.0;
+        default:
+          return originalBasePrice;
+      }
+    } else {
+      switch (sku) {
+        case "KIT-NAT-001":
+        case "KIT-GRS-002":
+          return 1300.0;
+        case "KIT-PDR-003":
+        case "KIT-AZM-004":
+        case "KIT-VJD-005":
+        case "KIT-AMH-006":
+          return 1350.0;
+        case "KIT-PXR-007":
+          return 1400.0;
+        case "KIT-NGR-008":
+        case "KIT-TRA-009":
+          return 1500.0;
+        default:
+          return originalBasePrice;
+      }
+    }
+  };
+
   // Update product details when selected in a row
   const handleProductChange = (index: number, productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -186,12 +227,16 @@ export default function NuevaCotizacionPage() {
     const inv = product.inventory.find(i => i.warehouseId === warehouseId);
     const stockAvailable = inv ? inv.quantity : 0;
 
+    const wh = warehouses.find(w => w.id === warehouseId);
+    const isMiami = wh ? (wh.country === "Estados Unidos" || wh.name.toLowerCase().includes("miami")) : false;
+    const unitPrice = getDefaultPrice(product.sku, isMiami, product.basePrice);
+
     setItems(prev => prev.map((item, idx) => {
       if (idx === index) {
         return {
           ...item,
           productId,
-          unitPrice: product.basePrice,
+          unitPrice,
           stockAvailable
         };
       }
@@ -220,18 +265,23 @@ export default function NuevaCotizacionPage() {
   // Trigger recalculations of stock when warehouse changes
   useEffect(() => {
     if (!warehouseId) return;
+
+    const wh = warehouses.find(w => w.id === warehouseId);
+    const isMiami = wh ? (wh.country === "Estados Unidos" || wh.name.toLowerCase().includes("miami")) : false;
+
     setItems(prev => prev.map(item => {
       if (!item.productId) return item;
       const product = products.find(p => p.id === item.productId);
       const inv = product?.inventory.find(i => i.warehouseId === warehouseId);
+      const unitPrice = product ? getDefaultPrice(product.sku, isMiami, product.basePrice) : 0;
       return {
         ...item,
-        stockAvailable: inv ? inv.quantity : 0
+        stockAvailable: inv ? inv.quantity : 0,
+        unitPrice
       };
     }));
 
     // Auto update currency based on warehouse country default
-    const wh = warehouses.find(w => w.id === warehouseId);
     if (wh) {
       if (wh.country === "Estados Unidos") {
         setCurrency("USD");
