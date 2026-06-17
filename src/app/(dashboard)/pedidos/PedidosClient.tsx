@@ -190,46 +190,69 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
               </div>
             </div>
           ) : (
-            canModify && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => {
-                    setSelectingWarehouseForId(order.id);
-                    if (warehouses.length > 0) setSelectedWarehouseId(warehouses[0].id);
-                  }}
-                  disabled={updatingId === order.id}
-                  style={{
-                    flex: 1,
-                    background: 'linear-gradient(135deg, var(--primary-teal) 0%, #156066 100%)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#ffffff',
-                    padding: '8px 12px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Iniciar Surtido
-                </button>
-                <button
-                  onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
-                  disabled={updatingId === order.id}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ef4444',
-                    padding: '8px 12px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            )
+            <>
+              {canModify && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => {
+                      setSelectingWarehouseForId(order.id);
+                      if (warehouses.length > 0) setSelectedWarehouseId(warehouses[0].id);
+                    }}
+                    disabled={updatingId === order.id}
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(135deg, var(--primary-teal) 0%, #156066 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Iniciar Surtido
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
+                    disabled={updatingId === order.id}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: '8px',
+                      color: '#ef4444',
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              {!canModify && userRole === "BODEGA" && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleUpdateStatus(order.id, "PREPARING", order.warehouseId || undefined)}
+                    disabled={updatingId === order.id}
+                    style={{
+                      flex: 1,
+                      background: 'linear-gradient(135deg, var(--primary-teal) 0%, #156066 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#ffffff',
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Iniciar Surtido
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )

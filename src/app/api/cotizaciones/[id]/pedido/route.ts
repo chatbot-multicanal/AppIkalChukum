@@ -125,6 +125,7 @@ export async function POST(
         data: {
           quoteId: quote.id,
           status: "PENDING",
+          warehouseId: quote.warehouseId, // Asignar automáticamente la bodega de la cotización
           scheduledDeliveryAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // Programado en 3 días
         }
       });
