@@ -45,7 +45,7 @@ export default async function PedidosPage() {
       <div className="page-header">
         <div>
           <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '6px' }}>
-            Pedidos (Tablero Kanban)
+            Flujo de Pedidos
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem', fontWeight: 500 }}>
             Monitorea el flujo de preparación, asignación de inventario y entrega de materiales de construcción.
