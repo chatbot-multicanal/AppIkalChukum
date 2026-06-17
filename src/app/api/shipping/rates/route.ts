@@ -171,6 +171,46 @@ export async function POST(request: Request) {
     // Ordenar por precio ascendente
     rates.sort((a: any, b: any) => parseFloat(a.amount) - parseFloat(b.amount));
 
+    // Si no obtuvimos tarifas reales y es un ambiente de prueba/desarrollo (o el token es de prueba),
+    // devolvemos tarifas simuladas para que el usuario pueda probar el flujo sin bloquearse.
+    if (rates.length === 0 && (shippoApiKey.startsWith("shippo_test_") || process.env.NODE_ENV === "development")) {
+      console.warn("⚠️ Shippo retornó 0 tarifas reales en pruebas. Generando tarifas simuladas de respaldo.");
+      const currency = country_to === "US" ? "USD" : "MXN";
+      const factor = currency === "USD" ? 1 : 20;
+
+      const simulatedRates = [
+        {
+          object_id: "rate_sim_dhl",
+          provider: "DHL Express (Simulado)",
+          servicelevel: "Express Worldwide",
+          amount: (150 * qty * factor).toFixed(2),
+          currency,
+          estimated_days: 2,
+          duration_terms: "Envío aéreo express - Entrega rápida (Respaldo Pruebas)"
+        },
+        {
+          object_id: "rate_sim_fedex",
+          provider: "FedEx (Simulado)",
+          servicelevel: "Ground / Priority",
+          amount: (85 * qty * factor).toFixed(2),
+          currency,
+          estimated_days: 4,
+          duration_terms: "Tránsito terrestre nacional estándar (Respaldo Pruebas)"
+        },
+        {
+          object_id: "rate_sim_ups",
+          provider: "UPS (Simulado)",
+          servicelevel: "Standard Ground",
+          amount: (65 * qty * factor).toFixed(2),
+          currency,
+          estimated_days: 5,
+          duration_terms: "Envío económico terrestre (Respaldo Pruebas)"
+        }
+      ];
+
+      return NextResponse.json({ success: true, rates: simulatedRates, simulated: true });
+    }
+
     return NextResponse.json({ success: true, rates });
   } catch (error: any) {
     console.error("❌ Error en POST /api/shipping/rates:", error);
