@@ -66,6 +66,9 @@ export default function NuevaCotizacionPage() {
   const [warehouseId, setWarehouseId] = useState("");
   const [currency, setCurrency] = useState("MXN");
   const [exchangeRate, setExchangeRate] = useState(1.0);
+  const [deliveryMethod, setDeliveryMethod] = useState("ENVIO"); // ENVIO or RECOLECTA
+  const [discount, setDiscount] = useState(0);
+  const [notes, setNotes] = useState("");
   const [items, setItems] = useState<QuoteItemInput[]>([
     { productId: "", quantity: 1, unitPrice: 0, stockAvailable: 0 }
   ]);
@@ -293,7 +296,9 @@ export default function NuevaCotizacionPage() {
 
   // Calculations
   const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
-  const baseSubtotal = subtotal + shippingCost;
+  const finalShippingCost = deliveryMethod === "RECOLECTA" ? 0 : shippingCost;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const baseSubtotal = discountedSubtotal + finalShippingCost;
   const tax = baseSubtotal * 0.16;
   const total = baseSubtotal + tax;
 
@@ -321,7 +326,10 @@ export default function NuevaCotizacionPage() {
           warehouseId,
           currency,
           exchangeRate,
-          shippingCost,
+          shippingCost: finalShippingCost,
+          deliveryMethod,
+          discount,
+          notes,
           items: items.map(it => ({
             productId: it.productId,
             quantity: it.quantity,
@@ -336,7 +344,7 @@ export default function NuevaCotizacionPage() {
         throw new Error(result.error || "Error al crear la cotización");
       }
 
-      alert("Cotización creada exitosamente como borrador.");
+      alert("Cotización creada exitosamente como Pendiente de aprobación.");
       router.push("/cotizaciones");
     } catch (err: any) {
       alert(`Error: ${err.message}`);
@@ -487,7 +495,7 @@ export default function NuevaCotizacionPage() {
                       </div>
                     </div>
 
-                    {warehouseId && (
+                    {warehouseId && deliveryMethod === "ENVIO" && (
                       <div>
                         <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
                         <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
@@ -672,6 +680,81 @@ export default function NuevaCotizacionPage() {
 
           </div>
 
+          {/* Card: Delivery Method, Discount & Comments */}
+          <div className="glass-card" style={{ padding: "30px", display: "flex", flexDirection: "column", gap: "24px", marginTop: "24px" }}>
+            <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "white", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px", margin: 0 }}>
+              Detalles de Entrega y Comercial
+            </h2>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" }}>
+              {/* Delivery Method */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Método de Entrega *</label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => { setDeliveryMethod("ENVIO"); }}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1px solid " + (deliveryMethod === "ENVIO" ? "var(--primary-teal)" : "rgba(255,255,255,0.08)"),
+                      background: deliveryMethod === "ENVIO" ? "rgba(29,128,136,0.1)" : "none",
+                      color: deliveryMethod === "ENVIO" ? "var(--primary-teal)" : "var(--text-secondary)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    🚚 Envío Domicilio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDeliveryMethod("RECOLECTA"); setShippingCost(0); }}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1px solid " + (deliveryMethod === "RECOLECTA" ? "var(--primary-sage)" : "rgba(255,255,255,0.08)"),
+                      background: deliveryMethod === "RECOLECTA" ? "rgba(164,189,145,0.15)" : "none",
+                      color: deliveryMethod === "RECOLECTA" ? "var(--primary-sage)" : "var(--text-secondary)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    🏢 Recolecta Local
+                  </button>
+                </div>
+              </div>
+
+              {/* Discount Input */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Descuento Directo ({currency})</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discount || ""}
+                  onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  placeholder="ej. 1500.00"
+                  style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                />
+              </div>
+            </div>
+
+            {/* Notes / Comments */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Observaciones / Comentarios de la Cotización</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Escribe aquí observaciones comerciales, vigencia de precios o condiciones de pago..."
+                style={{ width: "100%", padding: "12px", minHeight: "80px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", resize: "vertical" }}
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Right Side: Totals Summary & Submit */}
@@ -687,10 +770,16 @@ export default function NuevaCotizacionPage() {
                 <span style={{ color: "var(--text-secondary)" }}>Subtotal Productos:</span>
                 <span style={{ fontWeight: 600 }}>${subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
               </div>
-              {shippingCost > 0 && (
+              {discount > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
+                  <span style={{ color: "#ff6b6b" }}>Descuento Directo:</span>
+                  <span style={{ fontWeight: 600, color: "#ff6b6b" }}>-${discount.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+                </div>
+              )}
+              {finalShippingCost > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
                   <span style={{ color: "var(--text-secondary)" }}>Costo de Envío:</span>
-                  <span style={{ fontWeight: 600 }}>${shippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+                  <span style={{ fontWeight: 600 }}>${finalShippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
@@ -711,7 +800,7 @@ export default function NuevaCotizacionPage() {
                 className="btn-premium btn-primary-teal" 
                 style={{ width: "100%", padding: "14px" }}
               >
-                {submitting ? "Creando..." : "Guardar Borrador"}
+                {submitting ? "Creando..." : "Guardar como Pendiente Aprobación"}
               </button>
               
               <Link href="/cotizaciones" style={{ textDecoration: "none" }}>

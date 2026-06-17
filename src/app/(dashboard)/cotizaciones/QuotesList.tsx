@@ -21,6 +21,7 @@ interface Quote {
   subtotal: number;
   tax: number;
   total: number;
+  deliveryMethod?: string;
   createdAt: string;
   client: {
     name: string;
@@ -124,7 +125,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
         <div className="glass-card" style={{ padding: '20px' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Borradores</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Pendientes Aprobación</span>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px' }}>{draftCount}</div>
         </div>
         <div className="glass-card" style={{ padding: '20px' }}>
@@ -175,7 +176,20 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                         Creado por: {quote.user.name}
                       </div>
                     </td>
-                    <td>{quote.client.name}</td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{quote.client.name}</div>
+                      <div style={{ marginTop: '4px' }}>
+                        {quote.deliveryMethod === "RECOLECTA" ? (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--primary-sage)', background: 'rgba(164,189,145,0.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(164,189,145,0.2)' }}>
+                            Recolecta Local
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--primary-teal)', background: 'rgba(29,128,136,0.08)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(29,128,136,0.2)' }}>
+                            Envío a Domicilio
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td>{new Date(quote.createdAt).toLocaleDateString("es-MX", { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                     <td>
                       {quote.currency} ({quote.exchangeRate.toFixed(2)})
@@ -196,7 +210,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                           {quote.status === "APPROVED" ? "Aprobada" : 
                            quote.status === "SENT" ? "Enviada" : 
                            quote.status === "REJECTED" ? "Rechazada" : 
-                           "Borrador"}
+                           "Pendiente Aprobación"}
                         </span>
                       )}
                     </td>

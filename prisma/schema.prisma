@@ -108,8 +108,12 @@ model Quote {
 
   subtotal     Float
   shippingCost Float  @default(0.0)
+  discount     Float  @default(0.0)
   tax          Float
   total        Float
+
+  deliveryMethod String @default("ENVIO") // ENVIO, RECOLECTA
+  notes          String?
 
   pdfUrl String?
 

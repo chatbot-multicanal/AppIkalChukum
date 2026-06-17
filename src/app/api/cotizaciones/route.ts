@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost } = data;
+    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost, deliveryMethod, discount: discVal, notes } = data;
 
     // VALIDACIÓN: No cotización sin al menos 1 producto
     if (!items || items.length === 0) {
@@ -54,8 +54,9 @@ export async function POST(request: Request) {
       });
     }
 
-    const shippingCost = parseFloat(shipCost || 0) || 0;
-    const baseSubtotal = subtotal + shippingCost;
+    const discount = parseFloat(discVal || 0) || 0;
+    const shippingCost = deliveryMethod === "RECOLECTA" ? 0 : (parseFloat(shipCost || 0) || 0);
+    const baseSubtotal = Math.max(0, subtotal - discount) + shippingCost;
     const tax = baseSubtotal * 0.16; // IVA (16%)
     const total = baseSubtotal + tax;
 
@@ -78,8 +79,11 @@ export async function POST(request: Request) {
           exchangeRate: exchangeRate || 1.0,
           subtotal,
           shippingCost,
+          discount,
           tax,
           total,
+          deliveryMethod: deliveryMethod || "ENVIO",
+          notes: notes || null,
           items: {
             create: quoteItemsData
           }
@@ -96,7 +100,7 @@ export async function POST(request: Request) {
         entity: "Quote",
         entityId: quote.id,
         action: "CREATE",
-        details: JSON.stringify({ message: "Cotización creada en borrador", quoteNumber })
+        details: JSON.stringify({ message: "Cotización creada como pendiente de aprobación", quoteNumber })
       }
     });
 

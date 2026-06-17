@@ -220,6 +220,35 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
           </div>
         </div>
 
+        {/* 4b. Observaciones y Entrega (A la izquierda abajo, arriba de transferencia) */}
+        {(quote.notes || quote.deliveryMethod) && (
+          <div style={{ 
+            position: "absolute", 
+            bottom: "76mm", 
+            left: "24mm", 
+            width: "82mm", 
+            fontSize: "11px", 
+            color: "#6b7280", 
+            lineHeight: "1.4",
+            background: "rgba(29, 128, 136, 0.03)",
+            border: "1px dashed rgba(164, 189, 145, 0.3)",
+            padding: "10px 12px",
+            borderRadius: "8px"
+          }}>
+            {quote.deliveryMethod && (
+              <div style={{ marginBottom: "4px" }}>
+                <strong>Método de Entrega:</strong>{" "}
+                {quote.deliveryMethod === "RECOLECTA" ? "🏢 Recolecta Local (Bodega)" : "🚚 Envío a Domicilio"}
+              </div>
+            )}
+            {quote.notes && (
+              <div style={{ wordBreak: "break-word" }}>
+                <strong>Observaciones:</strong> {quote.notes}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 5. Bloque de Totales (Posición Absoluta a la derecha abajo) */}
         <div style={{ 
           position: "absolute", 
@@ -232,12 +261,24 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
           gap: "6px"
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
-            <span style={{ fontWeight: 500 }}>SUMA</span>
-            <span style={{ fontWeight: 600 }}>${quote.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 0 })}</span>
+            <span style={{ fontWeight: 500 }}>SUBTOTAL</span>
+            <span style={{ fontWeight: 600 }}>${quote.subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
+          {quote.discount > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#e11d48" }}>
+              <span style={{ fontWeight: 500 }}>DESCUENTO</span>
+              <span style={{ fontWeight: 600 }}>-${quote.discount.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
+          {quote.shippingCost > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
+              <span style={{ fontWeight: 500 }}>ENVÍO</span>
+              <span style={{ fontWeight: 600 }}>${quote.shippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
-            <span style={{ fontWeight: 500 }}>IVA</span>
-            <span style={{ fontWeight: 600 }}>${quote.tax.toLocaleString("es-MX", { minimumFractionDigits: 0 })}</span>
+            <span style={{ fontWeight: 500 }}>IVA (16%)</span>
+            <span style={{ fontWeight: 600 }}>${quote.tax.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
           <div style={{ 
             display: "flex", 
@@ -250,7 +291,7 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
             marginTop: "2px"
           }}>
             <span>TOTAL</span>
-            <span>${quote.total.toLocaleString("es-MX", { minimumFractionDigits: 0 })} {quote.currency}</span>
+            <span>${quote.total.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {quote.currency}</span>
           </div>
         </div>
 

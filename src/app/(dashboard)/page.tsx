@@ -393,7 +393,7 @@ export default async function Home() {
   // PANEL ADMINISTRADOR / GERENTE / VENDEDOR (ORIGINAL)
   // ----------------------------------------------------
 
-  // 1. Cotizaciones pendientes (Borradores y Enviadas)
+  // 1. Cotizaciones pendientes (Pendientes de Aprobación y Enviadas)
   const pendingQuotesCount = await db.quote.count({
     where: { status: { in: ["DRAFT", "SENT"] } }
   });
@@ -569,7 +569,7 @@ export default async function Home() {
                           {quote.status === "APPROVED" ? "Aprobada" : 
                            quote.status === "SENT" ? "Enviada" : 
                            quote.status === "REJECTED" ? "Rechazada" : 
-                           "Borrador"}
+                           "Pendiente Aprobación"}
                         </span>
                       </td>
                     </tr>
