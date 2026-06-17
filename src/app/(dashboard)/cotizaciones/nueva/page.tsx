@@ -191,12 +191,12 @@ export default function NuevaCotizacionPage() {
         case "KIT-AZM-004":
         case "KIT-VJD-005":
         case "KIT-AMH-006":
-          return 350.0;
+          return 312.0;
         case "KIT-PXR-007":
-          return 400.0;
+          return 330.0;
         case "KIT-NGR-008":
         case "KIT-TRA-009":
-          return 450.0;
+          return 350.0;
         default:
           return originalBasePrice;
       }
