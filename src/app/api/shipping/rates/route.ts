@@ -30,19 +30,24 @@ export async function POST(request: Request) {
     }
 
     // Formatear dirección origen (bodega)
-    const street1_from = warehouse.address || "Dirección de Bodega";
-    const city_from = warehouse.city || "Mérida";
-    const state_from = warehouse.state || "Yucatán";
-    const zip_from = warehouse.zip || "97000";
-    const country_from = warehouse.country === "Estados Unidos" ? "US" : "MX";
+    const isUsOrigin = warehouse.country === "Estados Unidos";
+    const street1_from = warehouse.address || (isUsOrigin ? "100 Biscayne Blvd" : "Calle 60 #102");
+    const city_from = warehouse.city || (isUsOrigin ? "Miami" : "Mérida");
+    const state_from = warehouse.state || (isUsOrigin ? "FL" : "Yucatán");
+    const zip_from = warehouse.zip || (isUsOrigin ? "33132" : "97000");
+    const country_from = isUsOrigin ? "US" : "MX";
     const phone_from = warehouse.phone || "9991234567";
 
     // Formatear dirección destino (cliente)
+    const isUsDest = client.country === "Estados Unidos" || 
+                     client.state === "Florida" || 
+                     client.state === "FL" || 
+                     (client.zip && client.zip.length === 5 && !isNaN(Number(client.zip)));
     const street1_to = client.address || "Dirección de Entrega";
-    const city_to = client.city || "Mérida";
-    const state_to = client.state || "Yucatán";
-    const zip_to = client.zip || "97000";
-    const country_to = client.country === "Estados Unidos" ? "US" : "MX";
+    const city_to = client.city || (isUsDest ? "Miami" : "Mérida");
+    const state_to = client.state || (isUsDest ? "FL" : "Yucatán");
+    const zip_to = client.zip || (isUsDest ? "33015" : "97000");
+    const country_to = isUsDest ? "US" : "MX";
     const phone_to = client.phone || "9991234567";
     const name_to = client.name;
     const company_to = client.company || "";
