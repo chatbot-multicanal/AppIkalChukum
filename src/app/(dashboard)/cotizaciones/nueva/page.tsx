@@ -542,13 +542,13 @@ export default function NuevaCotizacionPage() {
 
             </div>
 
-            {/* selectedClient card & Shippo cotizador */}
+            {/* selectedClient card */}
             {clientId && (
               (() => {
                 const selectedClient = clients.find(c => c.id === clientId);
                 if (!selectedClient) return null;
                 return (
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", marginTop: "10px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", marginTop: "10px" }}>
                     <div style={{ background: "rgba(255,255,255,0.01)", padding: "16px", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
                       <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-sage)", marginBottom: "8px" }}>📦 Dirección de Envío y Datos del Cliente:</h4>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
@@ -560,118 +560,6 @@ export default function NuevaCotizacionPage() {
                         <div style={{ gridColumn: "1 / -1" }}><strong>Horario de Recepción:</strong> {selectedClient.receptionSchedule || "N/A"}</div>
                       </div>
                     </div>
-
-                    {warehouseId && deliveryMethod === "ENVIO" && (() => {
-                      const wh = warehouses.find(w => w.id === warehouseId);
-                      const isMiami = wh ? (wh.country === "Estados Unidos" || wh.name.toLowerCase().includes("miami")) : false;
-
-                      if (isMiami) {
-                        return (
-                          <div>
-                            <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
-                            <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
-                              <button
-                                type="button"
-                                onClick={handleFetchShippingRates}
-                                disabled={loadingRates}
-                                className="btn-premium btn-secondary-sage"
-                                style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto" }}
-                              >
-                                {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
-                              </button>
-                              {shippingRates.length > 0 && (
-                                <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
-                                  ✓ {shippingRates.length} tarifa(s) cargada(s)
-                                </span>
-                              )}
-                              {shippingRates.length === 0 && fetchedItemsHash !== null && itemsHash !== fetchedItemsHash && (
-                                <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
-                                  ⚠ Productos modificados. Favor de consultar tarifas.
-                                </span>
-                              )}
-                            </div>
-
-                            {shippoError && (
-                              <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: "12px" }}>
-                                ⚠️ Error al cotizar: {shippoError}
-                              </div>
-                            )}
-
-                            {shippingRates.length > 0 && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px" }}>
-                                  Selecciona la paquetería de envío:
-                                </label>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
-                                  {shippingRates.map((r: any) => {
-                                    const isSelected = selectedRateId === r.object_id;
-                                    return (
-                                      <div
-                                        key={r.object_id}
-                                        onClick={() => handleRateSelect(r.object_id)}
-                                        style={{
-                                          padding: "12px",
-                                          borderRadius: "8px",
-                                          border: `1px solid ${isSelected ? "var(--primary-teal)" : "var(--border-color)"}`,
-                                          background: isSelected ? "rgba(29, 128, 136, 0.08)" : "rgba(255,255,255,0.01)",
-                                          cursor: "pointer",
-                                          transition: "all 0.2s ease"
-                                        }}
-                                      >
-                                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.8rem", color: isSelected ? "var(--primary-teal)" : "#ffffff" }}>
-                                          <span>{r.provider}</span>
-                                          <span>${parseFloat(r.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {r.currency}</span>
-                                        </div>
-                                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                                          Servicio: {r.servicelevel}<br />
-                                          Entrega estimada: ~{r.estimated_days} días
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      } else {
-                        return (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                            <div>
-                              <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (envio.com)</h4>
-                              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                                <button
-                                  type="button"
-                                  disabled
-                                  className="btn-premium btn-secondary-sage"
-                                  style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto", opacity: 0.5, cursor: "not-allowed" }}
-                                >
-                                  Cotizar en envio.com (Próximamente)
-                                </button>
-                                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                  La cotización automatizada estará disponible pronto.
-                                </span>
-                              </div>
-                            </div>
-
-                            <div style={{ maxWidth: "300px" }}>
-                              <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
-                                Costo de Envío Manual ({currency}) *
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={shippingCost || ""}
-                                onChange={(e) => setShippingCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                                placeholder="ej. 350.00"
-                                style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      }
-                    })()}
                   </div>
                 );
               })()
@@ -856,6 +744,131 @@ export default function NuevaCotizacionPage() {
                 />
               </div>
             </div>
+
+            {deliveryMethod === "ENVIO" && (() => {
+              if (!clientId) {
+                return (
+                  <div style={{ padding: "16px", borderRadius: "10px", background: "rgba(255, 159, 67, 0.08)", border: "1px solid rgba(255, 159, 67, 0.2)", display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "1.2rem" }}>⚠️</span>
+                    <span style={{ fontSize: "0.85rem", color: "#ff9f43", fontWeight: 600 }}>
+                      Por favor, selecciona un Cliente en la Sección 1 para poder cotizar las tarifas de envío.
+                    </span>
+                  </div>
+                );
+              }
+
+              const wh = warehouses.find(w => w.id === warehouseId);
+              const isMiami = wh ? (wh.country === "Estados Unidos" || wh.name.toLowerCase().includes("miami")) : false;
+
+              if (isMiami) {
+                return (
+                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div>
+                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
+                        <button
+                          type="button"
+                          onClick={handleFetchShippingRates}
+                          disabled={loadingRates}
+                          className="btn-premium btn-secondary-sage"
+                          style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto" }}
+                        >
+                          {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
+                        </button>
+                        {shippingRates.length > 0 && (
+                          <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
+                            ✓ {shippingRates.length} tarifa(s) cargada(s)
+                          </span>
+                        )}
+                        {shippingRates.length === 0 && fetchedItemsHash !== null && itemsHash !== fetchedItemsHash && (
+                          <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
+                            ⚠ Productos modificados. Favor de consultar tarifas.
+                          </span>
+                        )}
+                      </div>
+
+                      {shippoError && (
+                        <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: "12px" }}>
+                          ⚠️ Error al cotizar: {shippoError}
+                        </div>
+                      )}
+
+                      {shippingRates.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                            Selecciona la paquetería de envío:
+                          </label>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                            {shippingRates.map((r: any) => {
+                              const isSelected = selectedRateId === r.object_id;
+                              return (
+                                <div
+                                  key={r.object_id}
+                                  onClick={() => handleRateSelect(r.object_id)}
+                                  style={{
+                                    padding: "12px",
+                                    borderRadius: "8px",
+                                    border: `1px solid ${isSelected ? "var(--primary-teal)" : "var(--border-color)"}`,
+                                    background: isSelected ? "rgba(29, 128, 136, 0.08)" : "rgba(255,255,255,0.01)",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease"
+                                  }}
+                                >
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.8rem", color: isSelected ? "var(--primary-teal)" : "#ffffff" }}>
+                                    <span>{r.provider}</span>
+                                    <span>${parseFloat(r.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {r.currency}</span>
+                                  </div>
+                                  <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                                    Servicio: {r.servicelevel}<br />
+                                    Entrega estimada: ~{r.estimated_days} días
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              } else {
+                return (
+                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <div>
+                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (envio.com)</h4>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                        <button
+                          type="button"
+                          disabled
+                          className="btn-premium btn-secondary-sage"
+                          style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto", opacity: 0.5, cursor: "not-allowed" }}
+                        >
+                          Cotizar en envio.com (Próximamente)
+                        </button>
+                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                          La cotización automatizada estará disponible pronto.
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ maxWidth: "300px" }}>
+                      <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                        Costo de Envío Manual ({currency}) *
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={shippingCost || ""}
+                        onChange={(e) => setShippingCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="ej. 350.00"
+                        style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+            })()}
 
             {/* Notes / Comments */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
