@@ -74,13 +74,14 @@ export async function updateOrderStatusAction(
   warehouseId?: string
 ) {
   try {
-    // Validar autorización a nivel backend (Solo ADMIN, GERENTE o BODEGA (para SHIPPED) pueden cambiar estados de pedidos)
+    // Validar autorización a nivel backend (Solo ADMIN, GERENTE o BODEGA (para PREPARING/SHIPPED) pueden cambiar estados)
     const cookieStore = await cookies();
     const userRole = cookieStore.get("user_role")?.value;
+    const userId = cookieStore.get("user_session")?.value;
 
-    const isBodegaShipped = userRole === "BODEGA" && newStatus === "SHIPPED";
-    if (userRole !== "ADMIN" && userRole !== "GERENTE" && !isBodegaShipped) {
-      throw new Error("No autorizado. Solo administradores o gerentes pueden modificar pedidos, o encargado de bodega para dar salida.");
+    const isBodegaAllowed = userRole === "BODEGA" && (newStatus === "PREPARING" || newStatus === "SHIPPED");
+    if (userRole !== "ADMIN" && userRole !== "GERENTE" && !isBodegaAllowed) {
+      throw new Error("No autorizado. Solo administradores o gerentes pueden modificar pedidos, o encargado de bodega para preparar y dar salida.");
     }
 
     // 1. Fetch current order with items
@@ -101,6 +102,15 @@ export async function updateOrderStatusAction(
 
     if (!order) {
       throw new Error("El pedido solicitado no existe.");
+    }
+
+    // Validar que el encargado de bodega solo modifique pedidos de su sucursal
+    if (userRole === "BODEGA") {
+      const user = userId ? await db.user.findUnique({ where: { id: userId } }) : null;
+      const targetWarehouseId = order.warehouseId || order.quote.warehouseId;
+      if (!user || user.warehouseId !== targetWarehouseId) {
+        throw new Error("No tienes permisos para modificar pedidos asignados a otra bodega.");
+      }
     }
 
     if (order.status === newStatus) {
