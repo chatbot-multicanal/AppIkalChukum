@@ -94,16 +94,28 @@ export default function NuevaCotizacionPage() {
   const [shippingCost, setShippingCost] = useState(0);
   const [shippoError, setShippoError] = useState<string | null>(null);
 
+  const [fetchedItemsHash, setFetchedItemsHash] = useState<string | null>(null);
+
   // Hash to track changes in product selection or quantities
   const itemsHash = JSON.stringify(items.map(it => ({ id: it.productId, q: it.quantity })));
 
-  // Reset rates on client, warehouse, or items changes
+  // Reset rates on client or warehouse changes
   useEffect(() => {
     setShippingRates([]);
     setShippingCost(0);
     setSelectedRateId("");
     setShippoError(null);
-  }, [clientId, warehouseId, itemsHash]);
+    setFetchedItemsHash(null);
+  }, [clientId, warehouseId]);
+
+  // Clear rates if products or quantities change after they were fetched
+  useEffect(() => {
+    if (shippingRates.length > 0 || shippingCost > 0) {
+      setShippingRates([]);
+      setShippingCost(0);
+      setSelectedRateId("");
+    }
+  }, [itemsHash]);
 
   const totalKits = items.reduce((acc, item) => acc + (item.quantity || 0), 0);
 
@@ -136,6 +148,7 @@ export default function NuevaCotizacionPage() {
       } else {
         setShippingCost(0);
       }
+      setFetchedItemsHash(itemsHash);
     } catch (err: any) {
       console.error(err);
       setShippoError(err.message);
@@ -561,16 +574,15 @@ export default function NuevaCotizacionPage() {
                           >
                             {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
                           </button>
-                          {shippingRates.length > 0 ? (
+                          {shippingRates.length > 0 && (
                             <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
                               ✓ {shippingRates.length} tarifa(s) cargada(s)
                             </span>
-                          ) : (
-                            totalKits > 0 && (
-                              <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
-                                ⚠ Productos modificados. Favor de consultar tarifas.
-                              </span>
-                            )
+                          )}
+                          {shippingRates.length === 0 && fetchedItemsHash !== null && itemsHash !== fetchedItemsHash && (
+                            <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
+                              ⚠ Productos modificados. Favor de consultar tarifas.
+                            </span>
                           )}
                         </div>
 
