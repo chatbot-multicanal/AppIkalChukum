@@ -87,8 +87,8 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     newStatus: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED",
     warehouseId?: string
   ) => {
-    const isBodegaShipped = userRole === "BODEGA" && newStatus === "SHIPPED";
-    if (!canModify && !isBodegaShipped) {
+    const isBodegaAllowed = userRole === "BODEGA" && (newStatus === "PREPARING" || newStatus === "SHIPPED");
+    if (!canModify && !isBodegaAllowed) {
       alert("No tienes permisos para modificar pedidos.");
       return;
     }
