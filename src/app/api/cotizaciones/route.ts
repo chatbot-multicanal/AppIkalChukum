@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
     // VALIDACIÓN: Tipo de cambio requerido si moneda de cotización ≠ moneda de bodega
     const isUsdQuote = currency === "USD";
-    const isUsdWarehouse = warehouse.country === "Estados Unidos"; // Bodega Miami es USD, Mérida es MXN
+    const isUsdWarehouse = warehouse.country === "Estados Unidos" || warehouse.name.toLowerCase().includes("miami"); // Bodega Miami es USD, Mérida es MXN
     
     if (isUsdQuote && !isUsdWarehouse && (!exchangeRate || exchangeRate <= 0)) {
       return NextResponse.json({ error: "Se requiere tipo de cambio válido para cotizar en USD en esta bodega" }, { status: 400 });
@@ -56,9 +56,22 @@ export async function POST(request: Request) {
 
     const discount = parseFloat(discVal || 0) || 0;
     const shippingCost = deliveryMethod === "RECOLECTA" ? 0 : (parseFloat(shipCost || 0) || 0);
-    const baseSubtotal = Math.max(0, subtotal - discount) + shippingCost;
-    const tax = baseSubtotal * 0.16; // IVA (16%)
-    const total = baseSubtotal + tax;
+
+    let tax = 0;
+    let total = 0;
+
+    if (isUsdWarehouse) {
+      // Miami/USD logic: Shipping is part of subtotal, no tax (IVA = 0)
+      const amountBeforeDiscount = subtotal + shippingCost;
+      tax = 0;
+      total = Math.max(0, amountBeforeDiscount - discount);
+    } else {
+      // Mexico/MXN logic: Discount on products, then add shipping, then 16% IVA
+      const baseSubtotal = Math.max(0, subtotal - discount) + shippingCost;
+      tax = baseSubtotal * 0.16;
+      total = baseSubtotal + tax;
+    }
+
 
     // 3. Generar número de cotización
     const count = await db.quote.count();

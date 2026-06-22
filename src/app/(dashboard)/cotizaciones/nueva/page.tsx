@@ -67,7 +67,8 @@ export default function NuevaCotizacionPage() {
   const [currency, setCurrency] = useState("MXN");
   const [exchangeRate, setExchangeRate] = useState(1.0);
   const [deliveryMethod, setDeliveryMethod] = useState("ENVIO"); // ENVIO or RECOLECTA
-  const [discount, setDiscount] = useState(0);
+  const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
+  const [discountInput, setDiscountInput] = useState(0);
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<QuoteItemInput[]>([
     { productId: "", quantity: 1, unitPrice: 0, stockAvailable: 0 }
@@ -361,12 +362,38 @@ export default function NuevaCotizacionPage() {
   };
 
   // Calculations
+  const selectedWarehouse = warehouses.find(w => w.id === warehouseId);
+  const isMiami = selectedWarehouse ? (selectedWarehouse.country === "Estados Unidos" || selectedWarehouse.name.toLowerCase().includes("miami")) : false;
+
   const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
   const finalShippingCost = deliveryMethod === "RECOLECTA" ? 0 : shippingCost;
-  const discountedSubtotal = Math.max(0, subtotal - discount);
-  const baseSubtotal = discountedSubtotal + finalShippingCost;
-  const tax = baseSubtotal * 0.16;
-  const total = baseSubtotal + tax;
+
+  let calculatedDiscount = 0;
+  let tax = 0;
+  let total = 0;
+
+  if (isMiami) {
+    // Miami/USD logic: Shipping is part of subtotal, no tax (IVA = 0)
+    const amountBeforeDiscount = subtotal + finalShippingCost;
+    if (discountType === "percent") {
+      calculatedDiscount = amountBeforeDiscount * (discountInput / 100);
+    } else {
+      calculatedDiscount = discountInput;
+    }
+    tax = 0;
+    total = Math.max(0, amountBeforeDiscount - calculatedDiscount);
+  } else {
+    // Mexico/MXN logic: Discount on products, then add shipping, then 16% IVA
+    if (discountType === "percent") {
+      calculatedDiscount = subtotal * (discountInput / 100);
+    } else {
+      calculatedDiscount = discountInput;
+    }
+    const discountedSubtotal = Math.max(0, subtotal - calculatedDiscount);
+    const baseSubtotal = discountedSubtotal + finalShippingCost;
+    tax = baseSubtotal * 0.16;
+    total = baseSubtotal + tax;
+  }
 
   // Submit Quote Creation
   const handleSubmit = async (e: React.FormEvent) => {
@@ -394,7 +421,7 @@ export default function NuevaCotizacionPage() {
           exchangeRate,
           shippingCost: finalShippingCost,
           deliveryMethod,
-          discount,
+          discount: calculatedDiscount,
           notes,
           items: items.map(it => ({
             productId: it.productId,
@@ -732,16 +759,28 @@ export default function NuevaCotizacionPage() {
 
               {/* Discount Input */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Descuento Directo ({currency})</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={discount || ""}
-                  onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="ej. 1500.00"
-                  style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
-                />
+                <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  Descuento Directo
+                </label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={discountInput || ""}
+                    onChange={(e) => setDiscountInput(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder={discountType === "percent" ? "ej. 10%" : "ej. 1500.00"}
+                    style={{ flex: 1, padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                  />
+                  <select
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as "amount" | "percent")}
+                    style={{ padding: "12px", borderRadius: "8px", background: "#0c0f17", border: "1px solid var(--border-color)", color: "white", outline: "none", width: "110px", cursor: "pointer" }}
+                  >
+                    <option value="amount">Monto ($)</option>
+                    <option value="percent">Porcentaje (%)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -897,10 +936,10 @@ export default function NuevaCotizacionPage() {
                 <span style={{ color: "var(--text-secondary)" }}>Subtotal Productos:</span>
                 <span style={{ fontWeight: 600 }}>${subtotal.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
               </div>
-              {discount > 0 && (
+              {calculatedDiscount > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
                   <span style={{ color: "#ff6b6b" }}>Descuento Directo:</span>
-                  <span style={{ fontWeight: 600, color: "#ff6b6b" }}>-${discount.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+                  <span style={{ fontWeight: 600, color: "#ff6b6b" }}>-${calculatedDiscount.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
                 </div>
               )}
               {finalShippingCost > 0 && (
@@ -909,10 +948,12 @@ export default function NuevaCotizacionPage() {
                   <span style={{ fontWeight: 600 }}>${finalShippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>IVA (16%):</span>
-                <span style={{ fontWeight: 600 }}>${tax.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
-              </div>
+              {!isMiami && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.95rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>IVA (16%):</span>
+                  <span style={{ fontWeight: 600 }}>${tax.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "1.2rem", borderTop: "1px solid var(--border-color)", paddingTop: "16px", color: "white", fontWeight: 800 }}>
                 <span>Total:</span>
                 <span style={{ color: "var(--primary-sage)" }}>${total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {currency}</span>

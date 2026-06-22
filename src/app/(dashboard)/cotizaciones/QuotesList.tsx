@@ -87,6 +87,33 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
     }
   };
 
+  // Reject a Quote (DRAFT/SENT -> REJECTED)
+  const handleReject = async (quoteId: string) => {
+    if (!confirm("¿Estás seguro de que deseas rechazar esta cotización?")) return;
+    setIsProcessing(quoteId);
+    try {
+      const response = await fetch(`/api/cotizaciones/${quoteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REJECTED" })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al rechazar la cotización");
+      }
+
+      // Update state locally
+      setQuotes(prev => prev.map(q => q.id === quoteId ? { ...q, status: "REJECTED" } : q));
+      alert("Cotización rechazada exitosamente.");
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   // Convert Approved Quote to Order (1-Click)
   const handleCreateOrder = async (quoteId: string) => {
     setIsProcessing(quoteId);
@@ -230,14 +257,35 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                         </button>
                       ) : (
                         userRole === "ADMIN" && (
-                          <button 
-                            onClick={() => handleApprove(quote.id)}
-                            disabled={isBtnLoading}
-                            className="btn-premium btn-secondary-sage"
-                            style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', marginRight: '12px' }}
-                          >
-                            {isBtnLoading ? "Aprobando..." : "Aprobar"}
-                          </button>
+                          <>
+                            <button 
+                              onClick={() => handleApprove(quote.id)}
+                              disabled={isBtnLoading}
+                              className="btn-premium btn-secondary-sage"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', marginRight: '12px' }}
+                            >
+                              {isBtnLoading ? "Aprobando..." : "Aprobar"}
+                            </button>
+                            {quote.status !== "REJECTED" && (
+                              <button 
+                                onClick={() => handleReject(quote.id)}
+                                disabled={isBtnLoading}
+                                className="btn-premium"
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  fontSize: '0.8rem', 
+                                  borderRadius: '8px', 
+                                  cursor: 'pointer', 
+                                  marginRight: '12px', 
+                                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                                  color: '#ef4444', 
+                                  border: '1px solid rgba(239, 68, 68, 0.3)' 
+                                }}
+                              >
+                                {isBtnLoading ? "Procesando..." : "Rechazar"}
+                              </button>
+                            )}
+                          </>
                         )
                       )}
                       

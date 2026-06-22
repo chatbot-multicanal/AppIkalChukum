@@ -158,6 +158,41 @@ async function main() {
   });
   console.log("Bodegas creadas (Mérida, Miami).");
 
+  // Crear Usuarios de Bodega
+  const bodegaMerida = await prisma.user.create({
+    data: {
+      email: "bodega@ikalchukum.com",
+      name: "Encargado Bodega",
+      role: "BODEGA",
+      password: "password123",
+      active: true,
+      warehouseId: whMerida.id,
+    },
+  });
+
+  const bodegaMiamiDefault = await prisma.user.create({
+    data: {
+      email: "bodega_miami@ikalchukum.com",
+      name: "Encargado Miami",
+      role: "BODEGA",
+      password: "password123",
+      active: true,
+      warehouseId: whMiami.id,
+    },
+  });
+
+  const bodegaMiamiPatricio = await prisma.user.create({
+    data: {
+      email: "ppupiales@rcbglobal.com",
+      name: "Patricio Pupiales",
+      role: "BODEGA",
+      password: "rcb12345",
+      active: true,
+      warehouseId: whMiami.id,
+    },
+  });
+
+
   // 5. Crear Productos (Kits de Chukum, Sacos y Bidón con precios reales)
   const productsData = [
     // Kits de Venta
