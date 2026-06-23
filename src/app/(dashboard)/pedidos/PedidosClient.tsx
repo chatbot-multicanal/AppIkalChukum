@@ -41,6 +41,7 @@ interface Order {
       name: string;
     };
     items: QuoteItem[];
+    warehouseId?: string | null;
   };
 }
 
@@ -195,8 +196,13 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => {
-                      setSelectingWarehouseForId(order.id);
-                      if (warehouses.length > 0) setSelectedWarehouseId(warehouses[0].id);
+                      const whId = order.warehouseId || order.quote.warehouseId;
+                      if (whId) {
+                        handleUpdateStatus(order.id, "PREPARING", whId);
+                      } else {
+                        setSelectingWarehouseForId(order.id);
+                        if (warehouses.length > 0) setSelectedWarehouseId(warehouses[0].id);
+                      }
                     }}
                     disabled={updatingId === order.id}
                     style={{
@@ -234,7 +240,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
               {!canModify && userRole === "BODEGA" && (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    onClick={() => handleUpdateStatus(order.id, "PREPARING", order.warehouseId || undefined)}
+                    onClick={() => handleUpdateStatus(order.id, "PREPARING", order.warehouseId || order.quote.warehouseId || undefined)}
                     disabled={updatingId === order.id}
                     style={{
                       flex: 1,
