@@ -73,6 +73,8 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
   const [discountInput, setDiscountInput] = useState(0);
   const [notes, setNotes] = useState("");
+  const [shippingCarrier, setShippingCarrier] = useState<string | null>(null);
+  const [shippingDuration, setShippingDuration] = useState<string | null>(null);
   const [items, setItems] = useState<QuoteItemInput[]>([
     { productId: "", quantity: 1, unitPrice: 0, stockAvailable: 0 }
   ]);
@@ -200,6 +202,8 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
         setShippingCost(quoteData.shippingCost || 0);
         setDiscountInput(quoteData.discount || 0);
         setDiscountType("amount");
+        setShippingCarrier(quoteData.shippingCarrier || null);
+        setShippingDuration(quoteData.shippingDuration || null);
 
         // Map items and find current stock values
         const mappedItems = quoteData.items.map((item: any) => {
@@ -438,6 +442,16 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
 
     setSubmitting(true);
 
+    const selectedRate = deliveryMethod === "ENVIO" ? shippingRates.find(r => r.object_id === selectedRateId) : null;
+    const carrier = selectedRate ? selectedRate.provider : (deliveryMethod === "ENVIO" ? shippingCarrier : null);
+    let duration = null;
+    if (selectedRate && selectedRate.estimated_days) {
+      const days = parseInt(selectedRate.estimated_days, 10);
+      duration = isNaN(days) ? `${selectedRate.estimated_days} days` : `${days + 1} ${days + 1 === 1 ? 'day' : 'days'}`;
+    } else if (deliveryMethod === "ENVIO") {
+      duration = shippingDuration;
+    }
+
     try {
       const response = await fetch(`/api/cotizaciones/${id}`, {
         method: "PUT",
@@ -451,6 +465,8 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
           deliveryMethod,
           discount: calculatedDiscount,
           notes,
+          shippingCarrier: carrier,
+          shippingDuration: duration,
           items: items.map(it => ({
             productId: it.productId,
             quantity: it.quantity,
@@ -830,6 +846,11 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
               if (isMiami) {
                 return (
                   <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                    {shippingCarrier && (
+                      <div style={{ fontSize: "0.85rem", color: "var(--primary-sage)", background: "rgba(164,189,145,0.08)", padding: "10px 14px", borderRadius: "8px", border: "1px solid rgba(164,189,145,0.2)", marginBottom: "4px", width: "fit-content" }}>
+                        🚚 <strong>Envío registrado:</strong> {shippingCarrier} {shippingDuration ? `(Tránsito estimado: ${shippingDuration})` : ""}
+                      </div>
+                    )}
                     <div>
                       <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
                       <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>

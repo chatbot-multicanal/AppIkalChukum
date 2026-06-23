@@ -114,6 +114,8 @@ model Quote {
 
   deliveryMethod String @default("ENVIO") // ENVIO, RECOLECTA
   notes          String?
+  shippingCarrier  String?
+  shippingDuration String?
 
   pdfUrl String?
 

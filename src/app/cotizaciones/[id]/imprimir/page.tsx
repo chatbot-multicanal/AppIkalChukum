@@ -171,17 +171,18 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
 
             // 2. Shipping
             if (quote.shippingCost > 0) {
-              let carrier = "UPS";
-              if (quote.notes) {
+              let carrier = quote.shippingCarrier || "UPS";
+              if (!quote.shippingCarrier && quote.notes) {
                 const match = quote.notes.match(/via\s+([a-zA-Z0-9]+)/i) || quote.notes.match(/(UPS|FedEx|DHL|envio\.com|Estafeta|RedPack)/i);
                 if (match) {
                   carrier = match[1].toUpperCase();
                 }
               }
+              const durationText = quote.shippingDuration ? ` (Est. delivery: ${quote.shippingDuration})` : "";
               tableRows.push({
                 type: "shipping",
                 quantity: 1,
-                description: `Shipping via ${carrier}`,
+                description: `Shipping via ${carrier}${durationText}`,
                 unitPrice: quote.shippingCost,
                 total: quote.shippingCost
               });

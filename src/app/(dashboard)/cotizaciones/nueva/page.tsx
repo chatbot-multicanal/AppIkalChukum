@@ -410,6 +410,14 @@ export default function NuevaCotizacionPage() {
 
     setSubmitting(true);
 
+    const selectedRate = deliveryMethod === "ENVIO" ? shippingRates.find(r => r.object_id === selectedRateId) : null;
+    const carrier = selectedRate ? selectedRate.provider : null;
+    let duration = null;
+    if (selectedRate && selectedRate.estimated_days) {
+      const days = parseInt(selectedRate.estimated_days, 10);
+      duration = isNaN(days) ? `${selectedRate.estimated_days} days` : `${days + 1} ${days + 1 === 1 ? 'day' : 'days'}`;
+    }
+
     try {
       const response = await fetch("/api/cotizaciones", {
         method: "POST",
@@ -423,6 +431,8 @@ export default function NuevaCotizacionPage() {
           deliveryMethod,
           discount: calculatedDiscount,
           notes,
+          shippingCarrier: carrier,
+          shippingDuration: duration,
           items: items.map(it => ({
             productId: it.productId,
             quantity: it.quantity,
