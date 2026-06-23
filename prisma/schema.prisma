@@ -202,3 +202,10 @@ model Comment {
   user      User       @relation(fields: [userId], references: [id])
 }
 
+model Backup {
+  id        String   @id @default(cuid())
+  filename  String
+  data      String   // Contenido JSON con todos los registros
+  createdAt DateTime @default(now())
+}
+

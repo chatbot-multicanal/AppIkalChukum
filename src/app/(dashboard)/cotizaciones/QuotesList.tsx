@@ -246,47 +246,75 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, marginRight: '12px' }}>
                           Pedido Creado ✓
                         </span>
-                      ) : quote.status === "APPROVED" ? (
-                        <button 
-                          onClick={() => handleCreateOrder(quote.id)}
-                          disabled={isBtnLoading}
-                          className="btn-premium btn-primary-teal"
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', marginRight: '12px' }}
-                        >
-                          {isBtnLoading ? "Procesando..." : "Crear Pedido"}
-                        </button>
                       ) : (
-                        userRole === "ADMIN" && (
-                          <>
+                        <>
+                          {/* Crear Pedido si la cotización está aprobada */}
+                          {quote.status === "APPROVED" && (
                             <button 
-                              onClick={() => handleApprove(quote.id)}
+                              onClick={() => handleCreateOrder(quote.id)}
                               disabled={isBtnLoading}
-                              className="btn-premium btn-secondary-sage"
+                              className="btn-premium btn-primary-teal"
                               style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', marginRight: '12px' }}
                             >
-                              {isBtnLoading ? "Aprobando..." : "Aprobar"}
+                              {isBtnLoading ? "Procesando..." : "Crear Pedido"}
                             </button>
-                            {quote.status !== "REJECTED" && (
-                              <button 
-                                onClick={() => handleReject(quote.id)}
-                                disabled={isBtnLoading}
-                                className="btn-premium"
-                                style={{ 
-                                  padding: '6px 12px', 
-                                  fontSize: '0.8rem', 
-                                  borderRadius: '8px', 
-                                  cursor: 'pointer', 
-                                  marginRight: '12px', 
-                                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-                                  color: '#ef4444', 
-                                  border: '1px solid rgba(239, 68, 68, 0.3)' 
-                                }}
-                              >
-                                {isBtnLoading ? "Procesando..." : "Rechazar"}
-                              </button>
-                            )}
-                          </>
-                        )
+                          )}
+
+                          {/* Opciones de administrador: Aprobar y Rechazar */}
+                          {userRole === "ADMIN" && (
+                            <>
+                              {quote.status !== "APPROVED" && quote.status !== "REJECTED" && (
+                                <button 
+                                  onClick={() => handleApprove(quote.id)}
+                                  disabled={isBtnLoading}
+                                  className="btn-premium btn-secondary-sage"
+                                  style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', cursor: 'pointer', marginRight: '12px' }}
+                                >
+                                  {isBtnLoading ? "Aprobando..." : "Aprobar"}
+                                </button>
+                              )}
+
+                              {quote.status !== "REJECTED" && (
+                                <button 
+                                  onClick={() => handleReject(quote.id)}
+                                  disabled={isBtnLoading}
+                                  className="btn-premium"
+                                  style={{ 
+                                    padding: '6px 12px', 
+                                    fontSize: '0.8rem', 
+                                    borderRadius: '8px', 
+                                    cursor: 'pointer', 
+                                    marginRight: '12px', 
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                                    color: '#ef4444', 
+                                    border: '1px solid rgba(239, 68, 68, 0.3)' 
+                                  }}
+                                >
+                                  {isBtnLoading ? "Procesando..." : "Rechazar"}
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {/* Botón de Editar para cualquier rol si no hay pedido */}
+                          <Link href={`/cotizaciones/${quote.id}/editar`} style={{ textDecoration: 'none' }}>
+                            <button 
+                              className="btn-premium"
+                              style={{ 
+                                padding: '6px 12px', 
+                                fontSize: '0.8rem', 
+                                borderRadius: '8px', 
+                                cursor: 'pointer',
+                                marginRight: '12px',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                color: '#ffffff',
+                                border: '1px solid rgba(255, 255, 255, 0.15)'
+                              }}
+                            >
+                              Editar
+                            </button>
+                          </Link>
+                        </>
                       )}
                       
                       <button 

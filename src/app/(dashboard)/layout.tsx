@@ -91,10 +91,20 @@ export default function DashboardLayout({
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
       )
+    },
+    {
+      name: "Respaldos",
+      path: "/respaldos",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      )
     }
   ].filter(item => {
     if (userRole === "BODEGA") {
       return ["Dashboard", "Pedidos", "Inventario"].includes(item.name);
+    }
+    if (item.name === "Respaldos") {
+      return userRole === "ADMIN";
     }
     return true;
   });
