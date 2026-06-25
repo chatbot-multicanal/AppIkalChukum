@@ -549,3 +549,287 @@ export async function acknowledgeOrderAction(orderId: string) {
   }
 }
 
+/**
+ * Compra la guía de envío de Shippo usando el rate ID seleccionado.
+ */
+export async function buyShippoLabelAction(orderId: string, rateObjectId: string) {
+  try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get("user_role")?.value;
+    const userId = cookieStore.get("user_session")?.value;
+
+    if (userRole !== "ADMIN" && userRole !== "GERENTE" && userRole !== "BODEGA") {
+      throw new Error("No autorizado. Debes ser administrador, gerente o encargado de bodega para generar guías.");
+    }
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        warehouse: true,
+        quote: {
+          include: {
+            client: true,
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new Error("El pedido solicitado no existe.");
+    }
+
+    if (order.shippingLabelUrl) {
+      throw new Error("Este pedido ya cuenta con una guía de envío generada.");
+    }
+
+    const shippoApiKey = process.env.SHIPPO_API_KEY;
+    
+    let transactionData: {
+      label_url: string;
+      tracking_number: string;
+      object_id: string;
+    };
+
+    // Si es una tarifa simulada o no hay API key real, simulamos la respuesta
+    const isSimulated = rateObjectId.startsWith("rate_sim_") || !shippoApiKey || shippoApiKey.trim() === "";
+
+    if (isSimulated) {
+      console.log(`[Shippo Mock] Comprando tarifa simulada ${rateObjectId} para el pedido ${orderId}...`);
+      
+      const mockTracking = `1Z${Math.random().toString(36).substring(2, 10).toUpperCase()}${Math.floor(10000000 + Math.random() * 90000000)}`;
+      
+      transactionData = {
+        label_url: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+        tracking_number: mockTracking,
+        object_id: `tx_sim_${Math.random().toString(36).substring(2, 12)}`
+      };
+    } else {
+      console.log(`[Shippo API] Comprando guía con rate ID: ${rateObjectId}...`);
+      const response = await fetch("https://api.goshippo.com/transactions/", {
+        method: "POST",
+        headers: {
+          "Authorization": `ShippoToken ${shippoApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          rate: rateObjectId,
+          async: false
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.status === "ERROR") {
+        console.error("Error en Shippo Transaction:", data);
+        const errMsg = data.messages?.[0]?.text || data.message || "Error al comprar la guía en Shippo.";
+        throw new Error(errMsg);
+      }
+
+      transactionData = {
+        label_url: data.label_url,
+        tracking_number: data.tracking_number,
+        object_id: data.object_id
+      };
+    }
+
+    // Actualizar pedido
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        shippingLabelUrl: transactionData.label_url,
+        trackingNumber: transactionData.tracking_number,
+        shippoTransactionId: transactionData.object_id,
+        status: "SHIPPED", // Transicionar automáticamente a Enviado
+      }
+    });
+
+    // Registrar en auditoría
+    await db.auditLog.create({
+      data: {
+        entity: "Order",
+        entityId: orderId,
+        action: "BUY_SHIPPING_LABEL",
+        details: JSON.stringify({
+          userId,
+          trackingNumber: transactionData.tracking_number,
+          shippoTransactionId: transactionData.object_id,
+          simulated: isSimulated,
+        }),
+      },
+    });
+
+    revalidatePath("/pedidos");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      trackingNumber: transactionData.tracking_number,
+      labelUrl: transactionData.label_url
+    };
+  } catch (error: any) {
+    console.error("Error in buyShippoLabelAction:", error);
+    return {
+      success: false,
+      error: error.message || "Error al comprar la guía de envío."
+    };
+  }
+}
+
+/**
+ * Agenda la recolección física del paquete comprado en la bodega.
+ */
+export async function scheduleShippoPickupAction(
+  orderId: string,
+  pickupDate: string, // Formato "YYYY-MM-DD"
+  startTime: string,  // Formato "HH:MM" (e.g. "09:00")
+  endTime: string,    // Formato "HH:MM" (e.g. "17:00")
+  location: string    // e.g. "Warehouse"
+) {
+  try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get("user_role")?.value;
+    const userId = cookieStore.get("user_session")?.value;
+
+    if (userRole !== "ADMIN" && userRole !== "GERENTE" && userRole !== "BODEGA") {
+      throw new Error("No autorizado. Debes ser administrador, gerente o encargado de bodega para programar recolecciones.");
+    }
+
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        warehouse: true,
+      }
+    });
+
+    if (!order) {
+      throw new Error("El pedido solicitado no existe.");
+    }
+
+    if (!order.shippoTransactionId) {
+      throw new Error("Este pedido aún no tiene una guía de envío asociada para programar recolección.");
+    }
+
+    if (order.shippoPickupId) {
+      throw new Error("Este pedido ya cuenta con una recolección agendada.");
+    }
+
+    const isSimulated = order.shippoTransactionId.startsWith("tx_sim_");
+    const shippoApiKey = process.env.SHIPPO_API_KEY;
+
+    let pickupObjectId = "";
+
+    const startDateTimeStr = `${pickupDate}T${startTime}:00`;
+    const endDateTimeStr = `${pickupDate}T${endTime}:00`;
+
+    if (isSimulated || !shippoApiKey || shippoApiKey.trim() === "") {
+      console.log(`[Shippo Mock] Agendando recolección simulada para pedido ${orderId}...`);
+      pickupObjectId = `pk_sim_${Math.random().toString(36).substring(2, 12)}`;
+    } else {
+      console.log(`[Shippo API] Solicitando información de la transacción ${order.shippoTransactionId}...`);
+      
+      const txResponse = await fetch(`https://api.goshippo.com/transactions/${order.shippoTransactionId}`, {
+        headers: { "Authorization": `ShippoToken ${shippoApiKey}` }
+      });
+      const txData = await txResponse.json();
+      if (!txResponse.ok) {
+        throw new Error(txData.message || "Error al obtener detalles de la transacción en Shippo.");
+      }
+
+      const carrierAccount = txData.rate?.carrier_account || txData.carrier_account;
+      if (!carrierAccount) {
+        throw new Error("No se pudo identificar la cuenta del transportista (carrier account) para programar la recolección.");
+      }
+
+      const warehouse = order.warehouse;
+      if (!warehouse) {
+        throw new Error("La bodega de origen no está configurada en el pedido.");
+      }
+
+      const isUsOrigin = warehouse.country === "Estados Unidos";
+      const street1 = warehouse.address || "100 Biscayne Blvd";
+      const city = warehouse.city || "Miami";
+      const state = warehouse.state || "FL";
+      const zip = warehouse.zip || "33132";
+      const country = isUsOrigin ? "US" : "MX";
+      const phone = warehouse.phone || "9991234567";
+
+      console.log(`[Shippo API] Agendando recolección real con carrier_account: ${carrierAccount}...`);
+      const response = await fetch("https://api.goshippo.com/pickups/", {
+        method: "POST",
+        headers: {
+          "Authorization": `ShippoToken ${shippoApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          carrier_account: carrierAccount,
+          transactions: [order.shippoTransactionId],
+          pickup_time: {
+            start_datetime: new Date(startDateTimeStr).toISOString(),
+            end_datetime: new Date(endDateTimeStr).toISOString()
+          },
+          address: {
+            name: warehouse.name,
+            company: "Ikal Chukum",
+            street1: street1,
+            city: city,
+            state: state,
+            zip: zip,
+            country: country,
+            phone: phone,
+            email: "bodega@ikalchukum.com"
+          },
+          requested_location: location
+        })
+      });
+
+      const pickupData = await response.json();
+      if (!response.ok) {
+        console.error("Error en Shippo Pickup:", pickupData);
+        throw new Error(pickupData.message || "Error al programar la recolección en Shippo.");
+      }
+
+      pickupObjectId = pickupData.object_id;
+    }
+
+    // Actualizar pedido
+    await db.order.update({
+      where: { id: orderId },
+      data: {
+        shippoPickupId: pickupObjectId
+      }
+    });
+
+    // Registrar en auditoría
+    await db.auditLog.create({
+      data: {
+        entity: "Order",
+        entityId: orderId,
+        action: "SCHEDULE_PICKUP",
+        details: JSON.stringify({
+          userId,
+          pickupDate,
+          startTime,
+          endTime,
+          location,
+          shippoPickupId: pickupObjectId,
+          simulated: isSimulated
+        })
+      }
+    });
+
+    revalidatePath("/pedidos");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      pickupId: pickupObjectId
+    };
+  } catch (error: any) {
+    console.error("Error in scheduleShippoPickupAction:", error);
+    return {
+      success: false,
+      error: error.message || "Error al programar la recolección del envío."
+    };
+  }
+}
+
+

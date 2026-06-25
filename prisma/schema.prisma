@@ -156,6 +156,11 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  shippingLabelUrl    String?    // Enlace al PDF de la guía generada
+  trackingNumber      String?    // Código de rastreo de la paquetería
+  shippoTransactionId String?    // ID de la transacción en Shippo
+  shippoPickupId      String?    // ID de la recolección agendada
+
   quote     Quote      @relation(fields: [quoteId], references: [id])
   warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
 }
