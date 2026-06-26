@@ -67,6 +67,8 @@ export async function POST(request: Request) {
         city_to = "Coconut Grove";
       } else if (addrLower.includes("fort lauderdale") || addrLower.includes("ft. lauderdale") || addrLower.includes("ft lauderdale")) {
         city_to = "Fort Lauderdale";
+      } else if (addrLower.includes("topanga")) {
+        city_to = "Topanga";
       }
     }
 
