@@ -835,6 +835,34 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                       </div>
                     )}
 
+                    {/* Botón de Nota de Empaque (Disponible en PREPARING, SHIPPED, DELIVERED) */}
+                    {(order.status === "PREPARING" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
+                      <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                        <a
+                          href={`/pedidos/${order.id}/imprimir-nota`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            textAlign: 'center',
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            borderRadius: '8px',
+                            color: '#a4bd91',
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          📄 Nota de Empaque (Ikal)
+                        </a>
+                      </div>
+                    )}
+
                     {isPendingSave && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--primary-teal)', fontWeight: 'bold', margin: '8px 0' }}>
                         Actualizando base de datos...
