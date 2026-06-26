@@ -33,12 +33,17 @@ export async function POST(
       where: { quoteId: id }
     });
 
-    if (existingOrder) {
+    if (existingOrder && existingOrder.status !== "CANCELLED") {
       return NextResponse.json({ error: "Ya existe un pedido asociado a esta cotización" }, { status: 400 });
     }
 
     // 2. Realizar validación de stock y descuento en una transacción
     await db.$transaction(async (tx) => {
+      if (existingOrder && existingOrder.status === "CANCELLED") {
+        await tx.order.delete({
+          where: { id: existingOrder.id }
+        });
+      }
       if (!quote.warehouseId) {
         throw new Error("La cotización no tiene una bodega asignada.");
       }

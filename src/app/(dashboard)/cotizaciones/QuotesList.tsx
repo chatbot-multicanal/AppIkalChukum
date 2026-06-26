@@ -31,6 +31,7 @@ interface Quote {
   };
   order?: {
     id: string;
+    status: string;
   } | null;
 }
 
@@ -143,7 +144,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
   // Calculate stats dynamically
   const draftCount = quotes.filter(q => q.status === "DRAFT").length;
   const sentCount = quotes.filter(q => q.status === "SENT").length;
-  const approvedCount = quotes.filter(q => q.status === "APPROVED" || q.order).length;
+  const approvedCount = quotes.filter(q => q.status === "APPROVED" || (q.order && q.order.status !== "CANCELLED")).length;
   const totalCount = quotes.length;
   const conversionRate = totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
 
@@ -192,7 +193,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
               </tr>
             ) : (
               quotes.map((quote) => {
-                const hasOrder = !!quote.order;
+                const hasOrder = !!quote.order && quote.order.status !== "CANCELLED";
                 const isBtnLoading = isProcessing === quote.id;
 
                 return (

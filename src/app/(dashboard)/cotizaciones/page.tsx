@@ -12,7 +12,8 @@ export default async function CotizacionesPage() {
       user: true,
       order: {
         select: {
-          id: true
+          id: true,
+          status: true
         }
       }
     },
