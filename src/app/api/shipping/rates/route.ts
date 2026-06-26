@@ -44,7 +44,32 @@ export async function POST(request: Request) {
                      client.state === "FL" || 
                      (client.zip && client.zip.length === 5 && !isNaN(Number(client.zip)));
     const street1_to = client.address || "Dirección de Entrega";
-    const city_to = client.city || (isUsDest ? "Miami" : "Mérida");
+    
+    // Intentar deducir la ciudad correcta si hay inconsistencias en direcciones de EE.UU.
+    let city_to = client.city || (isUsDest ? "Miami" : "Mérida");
+    if (isUsDest && client.address) {
+      const addrLower = client.address.toLowerCase();
+      if (addrLower.includes("hialeah")) {
+        city_to = "Hialeah";
+      } else if (addrLower.includes("doral")) {
+        city_to = "Doral";
+      } else if (addrLower.includes("homestead")) {
+        city_to = "Homestead";
+      } else if (addrLower.includes("miami gardens")) {
+        city_to = "Miami Gardens";
+      } else if (addrLower.includes("opalocka") || addrLower.includes("opa-locka")) {
+        city_to = "Opa-locka";
+      } else if (addrLower.includes("coral gables")) {
+        city_to = "Coral Gables";
+      } else if (addrLower.includes("key biscayne")) {
+        city_to = "Key Biscayne";
+      } else if (addrLower.includes("coconut grove")) {
+        city_to = "Coconut Grove";
+      } else if (addrLower.includes("fort lauderdale") || addrLower.includes("ft. lauderdale") || addrLower.includes("ft lauderdale")) {
+        city_to = "Fort Lauderdale";
+      }
+    }
+
     const state_to = client.state || (isUsDest ? "FL" : "Yucatán");
     const zip_to = client.zip || (isUsDest ? "33015" : "97000");
     const country_to = isUsDest ? "US" : "MX";
@@ -55,18 +80,22 @@ export async function POST(request: Request) {
 
     // Calcular el peso de los paquetes
     // Supongamos que 1 kit = 3 sacos (20kg c/u) + 1 bidon (20kg) = 80kg = 176 lbs.
-    // Shippo requiere peso por paquete. Creamos paquetes por kit cotizado.
+    // Shippo requiere peso por paquete.
+    // 1 kit se compone físicamente de 4 bultos (3 sacos de 20kg + 1 bidón de 20kg).
+    // Dividimos el envío en bultos individuales menores a 70 lbs para cumplir con las regulaciones de peso de UPS/USPS.
     const qty = parseInt(kitsCount || "1") || 1;
     const parcels = [];
     for (let i = 0; i < qty; i++) {
-      parcels.push({
-        length: "16",
-        width: "16",
-        height: "16",
-        distance_unit: "in",
-        weight: "170",
-        mass_unit: "lb"
-      });
+      for (let p = 0; p < 4; p++) {
+        parcels.push({
+          length: "14",
+          width: "14",
+          height: "14",
+          distance_unit: "in",
+          weight: "42.5",
+          mass_unit: "lb"
+        });
+      }
     }
 
     const shippoApiKey = process.env.SHIPPO_API_KEY;
@@ -171,44 +200,52 @@ export async function POST(request: Request) {
     // Ordenar por precio ascendente
     rates.sort((a: any, b: any) => parseFloat(a.amount) - parseFloat(b.amount));
 
-    // Si no obtuvimos tarifas reales y es un ambiente de prueba/desarrollo (o el token es de prueba),
-    // devolvemos tarifas simuladas para que el usuario pueda probar el flujo sin bloquearse.
-    if (rates.length === 0 && (shippoApiKey.startsWith("shippo_test_") || process.env.NODE_ENV === "development")) {
-      console.warn("⚠️ Shippo retornó 0 tarifas reales en pruebas. Generando tarifas simuladas de respaldo.");
-      const currency = country_to === "US" ? "USD" : "MXN";
-      const factor = currency === "USD" ? 1 : 20;
+    if (rates.length === 0) {
+      // Extraer mensajes de error de Shippo para ayudar a diagnosticar
+      const shippoMessages = shippoData.messages || [];
+      const errorText = shippoMessages.length > 0 
+        ? shippoMessages.map((m: any) => `${m.source}: ${m.text}`).join(" | ")
+        : "No se encontraron tarifas de Shippo disponibles para esta dirección.";
 
-      const simulatedRates = [
-        {
-          object_id: "rate_sim_dhl",
-          provider: "DHL Express (Simulado)",
-          servicelevel: "Express Worldwide",
-          amount: (150 * qty * factor).toFixed(2),
-          currency,
-          estimated_days: 2,
-          duration_terms: "Envío aéreo express - Entrega rápida (Respaldo Pruebas)"
-        },
-        {
-          object_id: "rate_sim_fedex",
-          provider: "FedEx (Simulado)",
-          servicelevel: "Ground / Priority",
-          amount: (85 * qty * factor).toFixed(2),
-          currency,
-          estimated_days: 4,
-          duration_terms: "Tránsito terrestre nacional estándar (Respaldo Pruebas)"
-        },
-        {
-          object_id: "rate_sim_ups",
-          provider: "UPS (Simulado)",
-          servicelevel: "Standard Ground",
-          amount: (65 * qty * factor).toFixed(2),
-          currency,
-          estimated_days: 5,
-          duration_terms: "Envío económico terrestre (Respaldo Pruebas)"
-        }
-      ];
+      if (shippoApiKey.startsWith("shippo_test_") || process.env.NODE_ENV === "development") {
+        console.warn("⚠️ Shippo retornó 0 tarifas reales en pruebas. Generando tarifas simuladas de respaldo.");
+        const currency = country_to === "US" ? "USD" : "MXN";
+        const factor = currency === "USD" ? 1 : 20;
 
-      return NextResponse.json({ success: true, rates: simulatedRates, simulated: true });
+        const simulatedRates = [
+          {
+            object_id: "rate_sim_dhl",
+            provider: "DHL Express (Simulado)",
+            servicelevel: "Express Worldwide",
+            amount: (150 * qty * factor).toFixed(2),
+            currency,
+            estimated_days: 2,
+            duration_terms: "Envío aéreo express - Entrega rápida (Respaldo Pruebas)"
+          },
+          {
+            object_id: "rate_sim_fedex",
+            provider: "FedEx (Simulado)",
+            servicelevel: "Ground / Priority",
+            amount: (85 * qty * factor).toFixed(2),
+            currency,
+            estimated_days: 4,
+            duration_terms: "Tránsito terrestre nacional estándar (Respaldo Pruebas)"
+          },
+          {
+            object_id: "rate_sim_ups",
+            provider: "UPS (Simulado)",
+            servicelevel: "Standard Ground",
+            amount: (65 * qty * factor).toFixed(2),
+            currency,
+            estimated_days: 5,
+            duration_terms: "Envío económico terrestre (Respaldo Pruebas)"
+          }
+        ];
+
+        return NextResponse.json({ success: true, rates: simulatedRates, simulated: true });
+      } else {
+        return NextResponse.json({ error: `Error de paquetería: ${errorText}` }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ success: true, rates });
