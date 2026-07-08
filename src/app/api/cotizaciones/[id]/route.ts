@@ -162,7 +162,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const data = await request.json();
-    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost, deliveryMethod, discount: discVal, notes, shippingCarrier, shippingDuration } = data;
+    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost, deliveryMethod, discount: discVal, notes, shippingCarrier, shippingDuration, shippingQuoteStatus, shippingOptions } = data;
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "Una cotización debe tener al menos 1 producto" }, { status: 400 });
@@ -237,6 +237,8 @@ export async function PUT(
           notes: notes || null,
           shippingCarrier: shippingCarrier || null,
           shippingDuration: shippingDuration || null,
+          shippingQuoteStatus: shippingQuoteStatus || "NONE",
+          shippingOptions: shippingOptions || null,
           items: {
             create: quoteItemsData
           }

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost, deliveryMethod, discount: discVal, notes, shippingCarrier, shippingDuration } = data;
+    const { clientId, warehouseId, currency, exchangeRate, items, shippingCost: shipCost, deliveryMethod, discount: discVal, notes, shippingCarrier, shippingDuration, shippingQuoteStatus, shippingOptions } = data;
 
     // VALIDACIÓN: No cotización sin al menos 1 producto
     if (!items || items.length === 0) {
@@ -99,6 +99,8 @@ export async function POST(request: Request) {
           notes: notes || null,
           shippingCarrier: shippingCarrier || null,
           shippingDuration: shippingDuration || null,
+          shippingQuoteStatus: shippingQuoteStatus || "NONE",
+          shippingOptions: shippingOptions || null,
           items: {
             create: quoteItemsData
           }

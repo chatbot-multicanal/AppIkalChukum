@@ -116,6 +116,8 @@ model Quote {
   notes          String?
   shippingCarrier  String?
   shippingDuration String?
+  shippingQuoteStatus String @default("NONE") // NONE, PENDING_MIAMI, QUOTED
+  shippingOptions     String?
 
   pdfUrl String?
 

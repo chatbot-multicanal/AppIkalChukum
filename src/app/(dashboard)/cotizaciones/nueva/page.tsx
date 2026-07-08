@@ -97,6 +97,10 @@ export default function NuevaCotizacionPage() {
 
   const [fetchedItemsHash, setFetchedItemsHash] = useState<string | null>(null);
 
+  // New fields
+  const [shippingQuoteStatus, setShippingQuoteStatus] = useState("NONE");
+  const [shippingOptions, setShippingOptions] = useState("");
+
   // Hash to track changes in product selection or quantities
   const itemsHash = JSON.stringify(items.map(it => ({ id: it.productId, q: it.quantity })));
 
@@ -433,6 +437,8 @@ export default function NuevaCotizacionPage() {
           notes,
           shippingCarrier: carrier,
           shippingDuration: duration,
+          shippingQuoteStatus,
+          shippingOptions,
           items: items.map(it => ({
             productId: it.productId,
             quantity: it.quantity,
@@ -809,11 +815,45 @@ export default function NuevaCotizacionPage() {
               const wh = warehouses.find(w => w.id === warehouseId);
               const isMiami = wh ? (wh.country === "Estados Unidos" || wh.name.toLowerCase().includes("miami")) : false;
 
-              if (isMiami) {
-                return (
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              return (
+                <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
+                  
+                  {/* Selector de Estado de Cotización de Flete (Oficina Miami) */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                        Flete (Oficina Miami)
+                      </label>
+                      <select
+                        value={shippingQuoteStatus}
+                        onChange={(e) => setShippingQuoteStatus(e.target.value)}
+                        style={{ padding: "12px", borderRadius: "8px", background: "#0c0f17", border: "1px solid var(--border-color)", color: "white", outline: "none", width: "100%", cursor: "pointer" }}
+                      >
+                        <option value="NONE">No requerida / Manual</option>
+                        <option value="PENDING_MIAMI">⌛ Solicitar flete a Oficina Miami</option>
+                        <option value="QUOTED">✓ Cotizado por Oficina Miami</option>
+                      </select>
+                    </div>
+
+                    {(shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                          Opciones de Envío / Tarifas (Miami)
+                        </label>
+                        <textarea
+                          value={shippingOptions}
+                          onChange={(e) => setShippingOptions(e.target.value)}
+                          placeholder="Ej. Opción A: UPS Ground $85.72 USD | Opción B: LTL Freight $240.00 USD"
+                          rows={2}
+                          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", fontFamily: "inherit", fontSize: "0.85rem", resize: "vertical" }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {isMiami ? (
                     <div>
-                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (Shippo)</h4>
+                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (Shippo)</h4>
                       <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
                         <button
                           type="button"
@@ -878,14 +918,10 @@ export default function NuevaCotizacionPage() {
                         </div>
                       )}
                     </div>
-                  </div>
-                );
-              } else {
-                return (
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                  ) : (
                     <div>
-                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px" }}>🚚 Cotizar Envío (envio.com)</h4>
-                      <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (envio.com)</h4>
+                      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
                         <button
                           type="button"
                           disabled
@@ -899,24 +935,25 @@ export default function NuevaCotizacionPage() {
                         </span>
                       </div>
                     </div>
+                  )}
 
-                    <div style={{ maxWidth: "300px" }}>
-                      <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
-                        Costo de Envío Manual ({currency}) *
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={shippingCost || ""}
-                        onChange={(e) => setShippingCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                        placeholder="ej. 350.00"
-                        style={{ width: "100%", padding: "12px", borderRadius: "10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
-                      />
-                    </div>
+                  <div style={{ maxWidth: "300px" }}>
+                    <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
+                      Costo de Envío Final ({currency}) *
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={shippingCost || ""}
+                      onChange={(e) => setShippingCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                      required
+                      style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
+                    />
                   </div>
-                );
-              }
+
+                </div>
+              );
             })()}
 
             {/* Notes / Comments */}

@@ -22,6 +22,8 @@ interface Quote {
   tax: number;
   total: number;
   deliveryMethod?: string;
+  shippingQuoteStatus?: string;
+  shippingOptions?: string | null;
   createdAt: string;
   client: {
     name: string;
@@ -41,6 +43,8 @@ interface QuotesListProps {
 
 export default function QuotesList({ initialQuotes }: QuotesListProps) {
   const [quotes, setQuotes] = useState<Quote[]>(initialQuotes);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterPendingFreight, setFilterPendingFreight] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("VENDEDOR");
   const router = useRouter();
@@ -170,6 +174,45 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
         </div>
       </div>
 
+      {/* Filtros y Búsqueda */}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
+        <input
+          type="text"
+          placeholder="Buscar por folio o cliente..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            padding: "10px 16px",
+            borderRadius: "8px",
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid var(--border-color)",
+            color: "white",
+            outline: "none",
+            fontSize: "0.85rem",
+            width: "100%",
+            maxWidth: "320px"
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={() => setFilterPendingFreight(!filterPendingFreight)}
+          style={{
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: filterPendingFreight ? "1px solid #ff9f43" : "1px solid var(--border-color)",
+            background: filterPendingFreight ? "rgba(255, 159, 67, 0.12)" : "rgba(255,255,255,0.01)",
+            color: filterPendingFreight ? "#ff9f43" : "var(--text-secondary)",
+            fontWeight: 600,
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+        >
+          {filterPendingFreight ? "🧡 Mostrando: Fletes Pendientes" : "⌛ Filtrar: Fletes Pendientes Miami"}
+        </button>
+      </div>
+
       {/* List */}
       <div className="glass-card" style={{ padding: '32px', overflowX: 'auto' }}>
         <table className="premium-table">
@@ -185,14 +228,28 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
             </tr>
           </thead>
           <tbody>
-            {quotes.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                  No hay cotizaciones registradas.
-                </td>
-              </tr>
-            ) : (
-              quotes.map((quote) => {
+            {(() => {
+              const filteredQuotes = quotes.filter(quote => {
+                const matchesSearch = 
+                  quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  quote.client.name.toLowerCase().includes(searchQuery.toLowerCase());
+                
+                const matchesFreight = !filterPendingFreight || quote.shippingQuoteStatus === "PENDING_MIAMI";
+                
+                return matchesSearch && matchesFreight;
+              });
+
+              if (filteredQuotes.length === 0) {
+                return (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                      No se encontraron cotizaciones con los filtros aplicados.
+                    </td>
+                  </tr>
+                );
+              }
+
+              return filteredQuotes.map((quote) => {
                 const hasOrder = !!quote.order && quote.order.status !== "CANCELLED";
                 const isBtnLoading = isProcessing === quote.id;
 
@@ -226,21 +283,49 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                       ${quote.total.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {quote.currency}
                     </td>
                     <td>
-                      {hasOrder ? (
-                        <span className="badge badge-approved" style={{ border: "1px solid var(--primary-teal)" }}>Con Pedido</span>
-                      ) : (
-                        <span className={`badge ${
-                          quote.status === "APPROVED" ? "badge-approved" : 
-                          quote.status === "SENT" ? "badge-pending" : 
-                          quote.status === "REJECTED" ? "badge-cancelled" : 
-                          "badge-pending"
-                        }`}>
-                          {quote.status === "APPROVED" ? "Aprobada" : 
-                           quote.status === "SENT" ? "Enviada" : 
-                           quote.status === "REJECTED" ? "Rechazada" : 
-                           "Pendiente Aprobación"}
-                        </span>
-                      )}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {hasOrder ? (
+                          <span className="badge badge-approved" style={{ border: "1px solid var(--primary-teal)", alignSelf: "flex-start" }}>Con Pedido</span>
+                        ) : (
+                          <span className={`badge ${
+                            quote.status === "APPROVED" ? "badge-approved" : 
+                            quote.status === "SENT" ? "badge-pending" : 
+                            quote.status === "REJECTED" ? "badge-cancelled" : 
+                            "badge-pending"
+                          }`} style={{ alignSelf: "flex-start" }}>
+                            {quote.status === "APPROVED" ? "Aprobada" : 
+                             quote.status === "SENT" ? "Enviada" : 
+                             quote.status === "REJECTED" ? "Rechazada" : 
+                             "Pendiente Aprobación"}
+                          </span>
+                        )}
+
+                        {quote.shippingQuoteStatus === "PENDING_MIAMI" && (
+                          <span className="badge" style={{
+                            backgroundColor: "rgba(255, 159, 67, 0.08)",
+                            color: "#ff9f43",
+                            border: "1px solid rgba(255, 159, 67, 0.3)",
+                            alignSelf: "flex-start",
+                            fontSize: "0.75rem",
+                            padding: "3px 6px"
+                          }}>
+                            ⌛ Flete Miami Pendiente
+                          </span>
+                        )}
+
+                        {quote.shippingQuoteStatus === "QUOTED" && (
+                          <span className="badge" style={{
+                            backgroundColor: "rgba(164, 189, 145, 0.08)",
+                            color: "var(--primary-sage)",
+                            border: "1px solid rgba(164, 189, 145, 0.3)",
+                            alignSelf: "flex-start",
+                            fontSize: "0.75rem",
+                            padding: "3px 6px"
+                          }}>
+                            ✓ Flete Miami Cotizado
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       {hasOrder ? (
@@ -327,8 +412,8 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                     </td>
                   </tr>
                 );
-              })
-            )}
+              });
+            })()}
           </tbody>
         </table>
       </div>
