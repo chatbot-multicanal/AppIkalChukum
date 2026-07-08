@@ -189,7 +189,7 @@ export async function POST(request: Request) {
     }
 
     // Filtrar y estructurar las tarifas devueltas
-    const rates = (shippoData.rates || []).map((r: any) => ({
+    let rates = (shippoData.rates || []).map((r: any) => ({
       object_id: r.object_id,
       provider: r.provider,
       servicelevel: r.servicelevel?.name || r.servicelevel || "Estándar",
@@ -198,6 +198,65 @@ export async function POST(request: Request) {
       estimated_days: r.estimated_days || 3,
       duration_terms: r.duration_terms || "Tránsito estándar"
     }));
+
+    // USPS no soporta envíos multi-paquete, por lo que si hay más de 1 paquete,
+    // consultamos Shippo por separado con 1 solo paquete y multiplicamos la tarifa de USPS.
+    if (parcels.length > 1) {
+      try {
+        console.log(`[Shippo API] Solicitando tarifa individual para USPS...`);
+        const uspsResponse = await fetch("https://api.goshippo.com/shipments/", {
+          method: "POST",
+          headers: {
+            "Authorization": `ShippoToken ${shippoApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            address_from: {
+              name: warehouse.name,
+              street1: street1_from,
+              city: city_from,
+              state: state_from,
+              zip: zip_from,
+              country: country_from,
+              phone: phone_from,
+              email: "bodega@ikalchukum.com"
+            },
+            address_to: {
+              name: name_to,
+              company: company_to,
+              street1: street1_to,
+              city: city_to,
+              state: state_to,
+              zip: zip_to,
+              country: country_to,
+              phone: phone_to,
+              email: email_to
+            },
+            parcels: [parcels[0]], // Solo 1 paquete
+            async: false
+          })
+        });
+
+        if (uspsResponse.ok) {
+          const uspsData = await uspsResponse.json();
+          const uspsRates = (uspsData.rates || [])
+            .filter((r: any) => r.provider.toLowerCase().includes("usps"))
+            .map((r: any) => ({
+              object_id: r.object_id,
+              provider: r.provider,
+              servicelevel: r.servicelevel?.name || r.servicelevel || "Estándar",
+              amount: (parseFloat(r.amount) * parcels.length).toFixed(2), // Multiplicamos por la cantidad de paquetes
+              currency: r.currency,
+              estimated_days: r.estimated_days || 3,
+              duration_terms: r.duration_terms || "Tránsito estándar (Multi-paquete USPS)"
+            }));
+
+          rates = [...rates, ...uspsRates];
+        }
+      } catch (uspsError) {
+        console.error("⚠️ Error al cotizar tarifa individual de USPS:", uspsError);
+      }
+    }
 
     // Ordenar por precio ascendente
     rates.sort((a: any, b: any) => parseFloat(a.amount) - parseFloat(b.amount));
