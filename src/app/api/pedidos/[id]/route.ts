@@ -27,6 +27,7 @@ export async function PATCH(
       include: {
         quote: {
           include: {
+            client: true,
             items: {
               include: { product: true }
             }
@@ -58,18 +59,20 @@ export async function PATCH(
 
         // Calcular comisión del vendedor: tasa % del subtotal de la cotización
         const commissionAmount = order.quote.subtotal * (rate / 100);
+        const commissionUserId = order.quote.client.userId || order.quote.userId;
         
         // Crear o actualizar registro de comisión
         await tx.commission.upsert({
           where: { quoteId: order.quoteId },
           create: {
             quoteId: order.quoteId,
-            userId: order.quote.userId,
+            userId: commissionUserId,
             amount: commissionAmount,
             status: "PENDING",
             scheduledDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000) // Programada en 15 días
           },
           update: {
+            userId: commissionUserId,
             amount: commissionAmount,
             status: "PENDING",
             scheduledDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)

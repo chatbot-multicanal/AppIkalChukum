@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 export async function getClientsAction() {
   try {
@@ -33,20 +34,65 @@ export async function createClientAction(data: {
       throw new Error("Nombre, Ciudad y País son requeridos.");
     }
 
+    const nameTrim = data.name.trim();
+    const emailTrim = data.email?.trim().toLowerCase() || null;
+    const phoneTrim = data.phone?.trim() || null;
+
+    // 1. Control de duplicados por nombre
+    const existingByName = await db.client.findFirst({
+      where: {
+        active: true,
+        name: { equals: nameTrim, mode: 'insensitive' }
+      }
+    });
+    if (existingByName) {
+      throw new Error(`Ya existe un cliente activo registrado con el nombre "${nameTrim}".`);
+    }
+
+    // 2. Control de duplicados por correo
+    if (emailTrim) {
+      const existingByEmail = await db.client.findFirst({
+        where: {
+          active: true,
+          email: { equals: emailTrim, mode: 'insensitive' }
+        }
+      });
+      if (existingByEmail) {
+        throw new Error(`Ya existe un cliente activo registrado con el correo "${emailTrim}".`);
+      }
+    }
+
+    // 3. Control de duplicados por teléfono
+    if (phoneTrim) {
+      const existingByPhone = await db.client.findFirst({
+        where: {
+          active: true,
+          phone: phoneTrim
+        }
+      });
+      if (existingByPhone) {
+        throw new Error(`Ya existe un cliente activo registrado con el teléfono "${phoneTrim}".`);
+      }
+    }
+
+    const cookieStore = await cookies();
+    const creatorId = cookieStore.get("user_session")?.value || null;
+
     const client = await db.client.create({
       data: {
-        name: data.name.trim(),
+        name: nameTrim,
         company: data.company?.trim() || null,
         contact: data.contact?.trim() || null,
-        email: data.email?.trim() || null,
-        phone: data.phone?.trim() || null,
+        email: emailTrim,
+        phone: phoneTrim,
         address: data.address?.trim() || null,
         state: data.state?.trim() || null,
         zip: data.zip?.trim() || null,
         city: data.city.trim(),
         country: data.country.trim(),
         receptionSchedule: data.receptionSchedule?.trim() || null,
-        active: true
+        active: true,
+        userId: creatorId
       }
     });
 
@@ -80,14 +126,58 @@ export async function updateClientAction(
       throw new Error("Nombre, Ciudad y País son requeridos.");
     }
 
+    const nameTrim = data.name.trim();
+    const emailTrim = data.email?.trim().toLowerCase() || null;
+    const phoneTrim = data.phone?.trim() || null;
+
+    // 1. Control de duplicados por nombre
+    const existingByName = await db.client.findFirst({
+      where: {
+        id: { not: id },
+        active: true,
+        name: { equals: nameTrim, mode: 'insensitive' }
+      }
+    });
+    if (existingByName) {
+      throw new Error(`Ya existe otro cliente activo registrado con el nombre "${nameTrim}".`);
+    }
+
+    // 2. Control de duplicados por correo
+    if (emailTrim) {
+      const existingByEmail = await db.client.findFirst({
+        where: {
+          id: { not: id },
+          active: true,
+          email: { equals: emailTrim, mode: 'insensitive' }
+        }
+      });
+      if (existingByEmail) {
+        throw new Error(`Ya existe otro cliente activo registrado con el correo "${emailTrim}".`);
+      }
+    }
+
+    // 3. Control de duplicados por teléfono
+    if (phoneTrim) {
+      const existingByPhone = await db.client.findFirst({
+        where: {
+          id: { not: id },
+          active: true,
+          phone: phoneTrim
+        }
+      });
+      if (existingByPhone) {
+        throw new Error(`Ya existe otro cliente activo registrado con el teléfono "${phoneTrim}".`);
+      }
+    }
+
     const client = await db.client.update({
       where: { id },
       data: {
-        name: data.name.trim(),
+        name: nameTrim,
         company: data.company?.trim() || null,
         contact: data.contact?.trim() || null,
-        email: data.email?.trim() || null,
-        phone: data.phone?.trim() || null,
+        email: emailTrim,
+        phone: phoneTrim,
         address: data.address?.trim() || null,
         state: data.state?.trim() || null,
         zip: data.zip?.trim() || null,

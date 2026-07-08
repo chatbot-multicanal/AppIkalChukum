@@ -90,6 +90,7 @@ export async function updateOrderStatusAction(
       include: {
         quote: {
           include: {
+            client: true,
             items: {
               include: {
                 product: true,
@@ -399,17 +400,20 @@ export async function updateOrderStatusAction(
         const scheduledDate = new Date();
         scheduledDate.setDate(scheduledDate.getDate() + 15); // Cobro en 15 días
 
+        const commissionUserId = order.quote.client.userId || order.quote.userId;
+
         // Crear o actualizar la comisión en base de datos
         await tx.commission.upsert({
           where: { quoteId: order.quoteId },
           create: {
             quoteId: order.quoteId,
-            userId: order.quote.userId,
+            userId: commissionUserId,
             amount: commissionAmount,
             status: "PENDING",
             scheduledDate: scheduledDate,
           },
           update: {
+            userId: commissionUserId,
             amount: commissionAmount,
             status: "PENDING",
             scheduledDate: scheduledDate,

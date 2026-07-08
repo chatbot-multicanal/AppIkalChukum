@@ -22,6 +22,7 @@ model User {
   quotes      Quote[]
   commissions Commission[]
   comments    Comment[]
+  clients     Client[]
 }
 
 model Client {
@@ -42,6 +43,8 @@ model Client {
   updatedAt         DateTime @updatedAt
 
   quotes Quote[]
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 }
 
 model Warehouse {

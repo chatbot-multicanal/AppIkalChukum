@@ -23,6 +23,9 @@ interface Client {
   receptionSchedule: string | null;
   active: boolean;
   createdAt: Date | string;
+  user?: {
+    name: string;
+  } | null;
 }
 
 interface ClientesClientProps {
@@ -245,6 +248,7 @@ export default function ClientesClient({ initialClients }: ClientesClientProps) 
               <th>Contacto</th>
               <th>Ubicación</th>
               <th>Recepción</th>
+              <th>Vendedor</th>
               <th>Estado</th>
               <th style={{ textAlign: 'right' }}>Acciones</th>
             </tr>
@@ -252,7 +256,7 @@ export default function ClientesClient({ initialClients }: ClientesClientProps) 
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
                   No se encontraron clientes registrados.
                 </td>
               </tr>
@@ -276,6 +280,9 @@ export default function ClientesClient({ initialClients }: ClientesClientProps) 
                   </td>
                   <td>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{client.receptionSchedule || "No indicado"}</div>
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)' }}>{client.user?.name || "Administración"}</div>
                   </td>
                   <td>
                     <span className={`badge ${client.active ? "badge-approved" : "badge-cancelled"}`}>
