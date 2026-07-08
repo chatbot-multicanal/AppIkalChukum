@@ -735,29 +735,49 @@ export default function NuevaCotizacionPage() {
               {/* Delivery Method */}
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 <label style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Método de Entrega *</label>
-                <div style={{ display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                   <button
                     type="button"
-                    onClick={() => { setDeliveryMethod("ENVIO"); }}
+                    onClick={() => { setDeliveryMethod("ENVIO"); setShippingQuoteStatus("NONE"); }}
                     style={{
                       flex: 1,
+                      minWidth: "150px",
                       padding: "12px",
                       borderRadius: "8px",
-                      border: "1px solid " + (deliveryMethod === "ENVIO" ? "var(--primary-teal)" : "rgba(255,255,255,0.08)"),
-                      background: deliveryMethod === "ENVIO" ? "rgba(29,128,136,0.1)" : "none",
-                      color: deliveryMethod === "ENVIO" ? "var(--primary-teal)" : "var(--text-secondary)",
+                      border: "1px solid " + (deliveryMethod === "ENVIO" && shippingQuoteStatus === "NONE" ? "var(--primary-teal)" : "rgba(255,255,255,0.08)"),
+                      background: deliveryMethod === "ENVIO" && shippingQuoteStatus === "NONE" ? "rgba(29,128,136,0.1)" : "none",
+                      color: deliveryMethod === "ENVIO" && shippingQuoteStatus === "NONE" ? "var(--primary-teal)" : "var(--text-secondary)",
                       fontWeight: 700,
                       cursor: "pointer",
                       transition: "all 0.2s ease"
                     }}
                   >
-                    🚚 Envío Domicilio
+                    🚚 Envío Domicilio (Auto)
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setDeliveryMethod("RECOLECTA"); setShippingCost(0); }}
+                    onClick={() => { setDeliveryMethod("ENVIO"); setShippingQuoteStatus("PENDING_MIAMI"); }}
                     style={{
                       flex: 1,
+                      minWidth: "150px",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1px solid " + (deliveryMethod === "ENVIO" && (shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") ? "var(--primary-teal)" : "rgba(255,255,255,0.08)"),
+                      background: deliveryMethod === "ENVIO" && (shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") ? "rgba(29,128,136,0.1)" : "none",
+                      color: deliveryMethod === "ENVIO" && (shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") ? "var(--primary-teal)" : "var(--text-secondary)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    📦 Cotizar con Bodega
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDeliveryMethod("RECOLECTA"); setShippingCost(0); setShippingQuoteStatus("NONE"); }}
+                    style={{
+                      flex: 1,
+                      minWidth: "150px",
                       padding: "12px",
                       borderRadius: "8px",
                       border: "1px solid " + (deliveryMethod === "RECOLECTA" ? "var(--primary-sage)" : "rgba(255,255,255,0.08)"),
@@ -818,123 +838,127 @@ export default function NuevaCotizacionPage() {
               return (
                 <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
                   
-                  {/* Selector de Estado de Cotización de Flete (Oficina Miami) */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                        Flete (Oficina Miami)
-                      </label>
-                      <select
-                        value={shippingQuoteStatus}
-                        onChange={(e) => setShippingQuoteStatus(e.target.value)}
-                        style={{ padding: "12px", borderRadius: "8px", background: "#0c0f17", border: "1px solid var(--border-color)", color: "white", outline: "none", width: "100%", cursor: "pointer" }}
-                      >
-                        <option value="NONE">No requerida / Manual</option>
-                        <option value="PENDING_MIAMI">⌛ Solicitar flete a Oficina Miami</option>
-                        <option value="QUOTED">✓ Cotizado por Oficina Miami</option>
-                      </select>
-                    </div>
+                  {/* If Cotizar con Bodega is selected */}
+                  {(shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                      
+                      {/* Checkbox to mark as Quoted */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <input
+                          type="checkbox"
+                          id="fleteCotizado"
+                          checked={shippingQuoteStatus === "QUOTED"}
+                          onChange={(e) => setShippingQuoteStatus(e.target.checked ? "QUOTED" : "PENDING_MIAMI")}
+                          style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                        />
+                        <label htmlFor="fleteCotizado" style={{ fontSize: "0.9rem", color: "white", fontWeight: 600, cursor: "pointer" }}>
+                          ✓ Flete ya cotizado por Oficina Miami
+                        </label>
+                      </div>
 
-                    {(shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") && (
+                      {/* Textarea to input options */}
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                          Opciones de Envío / Tarifas (Miami)
+                          Opciones de Envío / Tarifas de Bodega
                         </label>
                         <textarea
                           value={shippingOptions}
                           onChange={(e) => setShippingOptions(e.target.value)}
-                          placeholder="Ej. Opción A: UPS Ground $85.72 USD | Opción B: LTL Freight $240.00 USD"
-                          rows={2}
-                          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", fontFamily: "inherit", fontSize: "0.85rem", resize: "vertical" }}
+                          placeholder="Aquí la oficina de Miami escribirá las opciones de envío (ej. UPS: $85 | LTL: $240) para elegir la mejor."
+                          rows={3}
+                          style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", fontFamily: "inherit", fontSize: "0.9rem", resize: "vertical" }}
                         />
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    /* If standard Auto shipping is selected */
+                    <>
+                      {isMiami ? (
+                        <div>
+                          <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (Shippo)</h4>
+                          <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
+                            <button
+                              type="button"
+                              onClick={handleFetchShippingRates}
+                              disabled={loadingRates}
+                              className="btn-premium btn-secondary-sage"
+                              style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto" }}
+                            >
+                              {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
+                            </button>
+                            {shippingRates.length > 0 && (
+                              <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
+                                ✓ {shippingRates.length} tarifa(s) cargada(s)
+                              </span>
+                            )}
+                            {shippingRates.length === 0 && fetchedItemsHash !== null && itemsHash !== fetchedItemsHash && (
+                              <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
+                                ⚠ Productos modificados. Favor de consultar tarifas.
+                              </span>
+                            )}
+                          </div>
 
-                  {isMiami ? (
-                    <div>
-                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (Shippo)</h4>
-                      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
-                        <button
-                          type="button"
-                          onClick={handleFetchShippingRates}
-                          disabled={loadingRates}
-                          className="btn-premium btn-secondary-sage"
-                          style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto" }}
-                        >
-                          {loadingRates ? "Cotizando..." : "Consultar Tarifas"}
-                        </button>
-                        {shippingRates.length > 0 && (
-                          <span style={{ fontSize: "0.8rem", color: "var(--primary-sage)", fontWeight: 600 }}>
-                            ✓ {shippingRates.length} tarifa(s) cargada(s)
-                          </span>
-                        )}
-                        {shippingRates.length === 0 && fetchedItemsHash !== null && itemsHash !== fetchedItemsHash && (
-                          <span style={{ fontSize: "0.8rem", color: "#ff9f43", fontWeight: 600 }}>
-                            ⚠ Productos modificados. Favor de consultar tarifas.
-                          </span>
-                        )}
-                      </div>
+                          {shippoError && (
+                            <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: "12px" }}>
+                              ⚠️ Error al cotizar: {shippoError}
+                            </div>
+                          )}
 
-                      {shippoError && (
-                        <div style={{ color: "#ef4444", fontSize: "0.8rem", marginBottom: "12px" }}>
-                          ⚠️ Error al cotizar: {shippoError}
+                          {shippingRates.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px" }}>
+                                Selecciona la paquetería de envío:
+                              </label>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                                {shippingRates.map((r: any) => {
+                                  const isSelected = selectedRateId === r.object_id;
+                                  return (
+                                    <div
+                                      key={r.object_id}
+                                      onClick={() => handleRateSelect(r.object_id)}
+                                      style={{
+                                        padding: "12px",
+                                        borderRadius: "8px",
+                                        border: `1px solid ${isSelected ? "var(--primary-teal)" : "var(--border-color)"}`,
+                                        background: isSelected ? "rgba(29, 128, 136, 0.08)" : "rgba(255,255,255,0.01)",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s ease"
+                                      }}
+                                    >
+                                      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.8rem", color: isSelected ? "var(--primary-teal)" : "#ffffff" }}>
+                                        <span>{r.provider}</span>
+                                        <span>${parseFloat(r.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {r.currency}</span>
+                                      </div>
+                                      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                                        Servicio: {r.servicelevel}<br />
+                                        Entrega estimada: ~{r.estimated_days} días
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
-
-                      {shippingRates.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px" }}>
-                            Selecciona la paquetería de envío:
-                          </label>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
-                            {shippingRates.map((r: any) => {
-                              const isSelected = selectedRateId === r.object_id;
-                              return (
-                                <div
-                                  key={r.object_id}
-                                  onClick={() => handleRateSelect(r.object_id)}
-                                  style={{
-                                    padding: "12px",
-                                    borderRadius: "8px",
-                                    border: `1px solid ${isSelected ? "var(--primary-teal)" : "var(--border-color)"}`,
-                                    background: isSelected ? "rgba(29, 128, 136, 0.08)" : "rgba(255,255,255,0.01)",
-                                    cursor: "pointer",
-                                    transition: "all 0.2s ease"
-                                  }}
-                                >
-                                  <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: "0.8rem", color: isSelected ? "var(--primary-teal)" : "#ffffff" }}>
-                                    <span>{r.provider}</span>
-                                    <span>${parseFloat(r.amount).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {r.currency}</span>
-                                  </div>
-                                  <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                                    Servicio: {r.servicelevel}<br />
-                                    Entrega estimada: ~{r.estimated_days} días
-                                  </div>
-                                </div>
-                              );
-                            })}
+                      ) : (
+                        <div>
+                          <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (envio.com)</h4>
+                          <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
+                            <button
+                              type="button"
+                              disabled
+                              className="btn-premium btn-secondary-sage"
+                              style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto", opacity: 0.5, cursor: "not-allowed" }}
+                            >
+                              Cotizar en envio.com (Próximamente)
+                            </button>
+                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                              La cotización automatizada estará disponible pronto.
+                            </span>
                           </div>
                         </div>
                       )}
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-teal)", marginBottom: "8px", marginTop: "10px" }}>🚚 Cotizar Envío Automatizado (envio.com)</h4>
-                      <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px" }}>
-                        <button
-                          type="button"
-                          disabled
-                          className="btn-premium btn-secondary-sage"
-                          style={{ padding: "10px 16px", fontSize: "0.85rem", borderRadius: "8px", height: "auto", opacity: 0.5, cursor: "not-allowed" }}
-                        >
-                          Cotizar en envio.com (Próximamente)
-                        </button>
-                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                          La cotización automatizada estará disponible pronto.
-                        </span>
-                      </div>
-                    </div>
+                    </>
                   )}
 
                   <div style={{ maxWidth: "300px" }}>
