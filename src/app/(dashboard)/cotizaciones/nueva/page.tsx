@@ -100,6 +100,19 @@ export default function NuevaCotizacionPage() {
   // New fields
   const [shippingQuoteStatus, setShippingQuoteStatus] = useState("NONE");
   const [shippingOptions, setShippingOptions] = useState("");
+  const [userRole, setUserRole] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const role = document.cookie
+        .split("; ")
+        .find(row => row.startsWith("user_role="))
+        ?.split("=")[1];
+      if (role) {
+        setUserRole(role);
+      }
+    }
+  }, []);
 
   // Hash to track changes in product selection or quantities
   const itemsHash = JSON.stringify(items.map(it => ({ id: it.productId, q: it.quantity })));
@@ -842,33 +855,62 @@ export default function NuevaCotizacionPage() {
                   {(shippingQuoteStatus === "PENDING_MIAMI" || shippingQuoteStatus === "QUOTED") ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                       
-                      {/* Checkbox to mark as Quoted */}
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <input
-                          type="checkbox"
-                          id="fleteCotizado"
-                          checked={shippingQuoteStatus === "QUOTED"}
-                          onChange={(e) => setShippingQuoteStatus(e.target.checked ? "QUOTED" : "PENDING_MIAMI")}
-                          style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                        />
-                        <label htmlFor="fleteCotizado" style={{ fontSize: "0.9rem", color: "white", fontWeight: 600, cursor: "pointer" }}>
-                          ✓ Flete ya cotizado por Oficina Miami
-                        </label>
-                      </div>
+                      {userRole !== "VENDEDOR" ? (
+                        <>
+                          {/* Checkbox to mark as Quoted */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <input
+                              type="checkbox"
+                              id="fleteCotizado"
+                              checked={shippingQuoteStatus === "QUOTED"}
+                              onChange={(e) => setShippingQuoteStatus(e.target.checked ? "QUOTED" : "PENDING_MIAMI")}
+                              style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                            />
+                            <label htmlFor="fleteCotizado" style={{ fontSize: "0.9rem", color: "white", fontWeight: 600, cursor: "pointer" }}>
+                              ✓ Flete ya cotizado por Oficina Miami
+                            </label>
+                          </div>
 
-                      {/* Textarea to input options */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
-                          Opciones de Envío / Tarifas de Bodega
-                        </label>
-                        <textarea
-                          value={shippingOptions}
-                          onChange={(e) => setShippingOptions(e.target.value)}
-                          placeholder="Aquí la oficina de Miami escribirá las opciones de envío (ej. UPS: $85 | LTL: $240) para elegir la mejor."
-                          rows={3}
-                          style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", fontFamily: "inherit", fontSize: "0.9rem", resize: "vertical" }}
-                        />
-                      </div>
+                          {/* Textarea to input options */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                              Opciones de Envío / Tarifas de Bodega
+                            </label>
+                            <textarea
+                              value={shippingOptions}
+                              onChange={(e) => setShippingOptions(e.target.value)}
+                              placeholder="Aquí la oficina de Miami escribirá las opciones de envío (ej. UPS: $85 | LTL: $240) para elegir la mejor."
+                              rows={3}
+                              style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none", fontFamily: "inherit", fontSize: "0.9rem", resize: "vertical" }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Seller Role Read-only info */}
+                          <div style={{ padding: "16px", borderRadius: "10px", background: "rgba(29, 128, 136, 0.08)", border: "1px solid rgba(29, 128, 136, 0.2)", display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <span style={{ fontSize: "0.85rem", color: "var(--primary-teal)", fontWeight: 700 }}>
+                              {shippingQuoteStatus === "QUOTED" ? "✓ Flete ya cotizado por Oficina Miami" : "⌛ Flete Pendiente de Cotizar por Oficina Miami"}
+                            </span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                              {shippingQuoteStatus === "QUOTED" 
+                                ? "La oficina de Miami ha propuesto las tarifas detalladas abajo. Elige la mejor opción e ingresa el costo en el campo final."
+                                : "Se enviará la solicitud de flete a la bodega de Miami cuando guardes esta cotización."}
+                            </span>
+                          </div>
+
+                          {shippingOptions && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <label style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                                Tarifas propuestas por Bodega
+                              </label>
+                              <div style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", fontSize: "0.9rem", whiteSpace: "pre-wrap" }}>
+                                {shippingOptions}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   ) : (
                     /* If standard Auto shipping is selected */
