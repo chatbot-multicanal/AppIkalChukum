@@ -85,9 +85,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // Obtener creador desde cookies
+    // Validar autorización (o sesión de usuario activa o API key válida de ManyChat/Sofía)
     const cookieStore = await cookies();
     const creatorId = cookieStore.get("user_session")?.value || null;
+    const apiKeyHeader = request.headers.get("x-api-key");
+    const validApiKey = process.env.ERP_API_KEY || "ikal-chukum-secret-key-2026";
+
+    if (!creatorId && (!apiKeyHeader || apiKeyHeader !== validApiKey)) {
+      return NextResponse.json({ error: "No autorizado. Requiere sesión activa o clave API válida." }, { status: 401 });
+    }
 
     const client = await db.client.create({
       data: {
