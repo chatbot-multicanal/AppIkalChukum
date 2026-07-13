@@ -16,8 +16,11 @@ export function middleware(request: NextRequest) {
     pathname.includes(".") || 
     pathname === "/favicon.ico";
 
-  // Permitir el paso para archivos estáticos y APIs de autenticación sin restricciones
-  if (isStaticFile || isAuthApi) {
+  const isApiRoute = pathname.startsWith("/api");
+  const isCriticalApi = pathname.startsWith("/api/comisiones/config");
+
+  // Permitir el paso para archivos estáticos, APIs de autenticación y APIs normales sin redirección
+  if (isStaticFile || isAuthApi || (isApiRoute && !isCriticalApi)) {
     return NextResponse.next();
   }
 
@@ -35,7 +38,7 @@ export function middleware(request: NextRequest) {
 
   // 4. Protección específica de Administración para APIs o vistas críticas
   // Si intenta actualizar la configuración de comisión y no es ADMIN
-  if (pathname.startsWith("/api/comisiones/config") && userRole !== "ADMIN") {
+  if (isCriticalApi && userRole !== "ADMIN") {
     return NextResponse.json(
       { error: "No autorizado. Requiere rol de Administrador." },
       { status: 403 }
@@ -45,7 +48,7 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Configurar en qué rutas se ejecutará el middleware (en todas excepto archivos estáticos explícitos)
+// Configurar en qué rutas se ejecutará el middleware
 export const config = {
   matcher: [
     /*
@@ -56,6 +59,7 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public files (images, icons)
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    "/api/comisiones/config"
   ],
 };
