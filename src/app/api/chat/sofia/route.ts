@@ -54,10 +54,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    let apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey || apiKey.trim() === "") {
+      const dbSetting = await db.systemSetting.findUnique({
+        where: { key: "OPENAI_API_KEY" }
+      });
+      if (dbSetting && dbSetting.value.trim() !== "") {
+        apiKey = dbSetting.value.trim();
+      }
+    }
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: "La API Key de OpenAI no está configurada" },
+        { error: "La API Key de OpenAI no está configurada en las variables de entorno ni en la base de datos." },
         { status: 500 }
       );
     }
