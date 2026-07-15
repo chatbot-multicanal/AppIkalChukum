@@ -32,6 +32,7 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
   - Masilla / Skim Coat / Stucco: 8 a 10 m² por kit (usar promedio de 9 m² para calcular).
   - Tablaroca / Drywall: 13 a 15 m² por kit (usar promedio de 14 m² para calcular).
 - Paleta de Colores: Natural (atemporal/orgánico), Azul Maya, Verde Jade, Gris, Negro, Amarillo Hacienda, Palo de Rosa, Rojo, Tierra Café, Tierra Rojizo.
+- IMPORTANTE: Cuando el cliente te pregunte qué colores tienes, qué colores manejas o te pida la paleta de colores, incluye al final de tu texto el siguiente enlace público exacto para que se genere la vista previa de la imagen de la paleta en WhatsApp: https://app.ikalchukum.com/paleta_colores.png
 
 ### PROCESO DE APLICACIÓN Y SOPORTE:
 - La superficie debe estar completamente limpia, seca, libre de polvo, grasa o humedad previa.
@@ -338,10 +339,18 @@ export async function POST(request: Request) {
       console.error("Failed to log success:", dbErr);
     }
 
+    // Detectar si la respuesta habla de la paleta de colores para proveer el mediaUrl
+    let mediaUrl = "";
+    const lowerReply = choice.message.content.toLowerCase();
+    if (lowerReply.includes("paleta") || lowerReply.includes("colores") || lowerReply.includes("color")) {
+      mediaUrl = "https://app.ikalchukum.com/paleta_colores.png";
+    }
+
     // Retornar la respuesta final en formato JSON
     return NextResponse.json({
       success: true,
-      reply: choice.message.content
+      reply: choice.message.content,
+      mediaUrl
     });
 
   } catch (error: any) {
