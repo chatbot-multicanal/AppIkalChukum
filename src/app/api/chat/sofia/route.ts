@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/mail";
 
 const SOFIA_SYSTEM_PROMPT = `
 # LA BIBLIA DE SOFÍA
@@ -100,9 +101,11 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
 
 ### INSTRUCCIONES DE HERRAMIENTAS (ACTIONS):
 Tienes a tu disposición herramientas que puedes invocar automáticamente para responder al cliente:
-1. Si el cliente te da sus datos personales (nombre, ciudad, correo o teléfono) para registrarse o cotizar, invoca 'registrar_cliente'.
-2. Si el cliente te pregunta cuántos kits necesita, pregúntale los metros cuadrados y la superficie, e invoca 'calcular_material'.
-3. Si el cliente pregunta si hay stock en Miami o Mérida de algún color, invoca 'consultar_inventario'.
+1. Si el cliente tiene un proyecto en México y solicita una cotización, pídele su nombre completo, ciudad, metros cuadrados, tipo de superficie (revoco, masilla o tablaroca) y color de Chukum de su elección, e invoca 'solicitar_cotizacion_mexico'.
+2. Si el cliente tiene un proyecto en Estados Unidos y solicita una cotización, pídele su nombre completo, ciudad, código postal de EE.UU. (ZIP), metros cuadrados, tipo de superficie (revoco, masilla o tablaroca) y color de Chukum de su elección, e invoca 'solicitar_cotizacion_usa'.
+3. Si el cliente te pregunta cuántos kits necesita (sin registrarse o cotizar aún), pregúntale los metros cuadrados y la superficie, e invoca 'calcular_material'.
+4. Si el cliente pregunta si hay stock en Miami o Mérida de algún color, invoca 'consultar_inventario'.
+5. Si el cliente te da sus datos personales únicamente para registrarse como contacto (sin solicitar cotización todavía), invoca 'registrar_cliente'.
 `;
 
 export async function POST(request: Request) {
@@ -155,6 +158,50 @@ export async function POST(request: Request) {
               company: { type: "string", description: "Empresa o estudio de arquitectura/construcción (opcional)." }
             },
             required: ["name", "city", "country"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "solicitar_cotizacion_mexico",
+          description: "Registra un prospecto en México que requiere cotización manual personalizada e informa a ventas.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nombre completo del cliente." },
+              city: { type: "string", description: "Ciudad del proyecto." },
+              m2: { type: "number", description: "Metros cuadrados totales de la obra." },
+              tipoSuperficie: { type: "string", enum: ["revoco", "masilla", "tablaroca"], description: "Superficie de aplicación." },
+              color: { type: "string", description: "Color de acabado Chukum deseado." },
+              email: { type: "string", description: "Correo de contacto (opcional)." },
+              phone: { type: "string", description: "Teléfono de contacto (opcional)." },
+              company: { type: "string", description: "Empresa o constructora (opcional)." }
+            },
+            required: ["name", "city", "m2", "tipoSuperficie", "color"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "solicitar_cotizacion_usa",
+          description: "Crea una cotización en borrador para Estados Unidos (bodega Miami) pendiente de flete y aprobación administrativa.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nombre completo del cliente." },
+              city: { type: "string", description: "Ciudad del proyecto." },
+              zip: { type: "string", description: "Código Postal de EE.UU. (necesario para cotizar flete)." },
+              m2: { type: "number", description: "Metros cuadrados totales de la obra." },
+              tipoSuperficie: { type: "string", enum: ["revoco", "masilla", "tablaroca"], description: "Superficie de aplicación." },
+              color: { type: "string", description: "Color de acabado Chukum deseado." },
+              email: { type: "string", description: "Correo de contacto (opcional)." },
+              phone: { type: "string", description: "Teléfono de contacto (opcional)." },
+              company: { type: "string", description: "Empresa o constructora (opcional)." },
+              address: { type: "string", description: "Dirección de envío (opcional)." }
+            },
+            required: ["name", "city", "zip", "m2", "tipoSuperficie", "color"]
           }
         }
       },
@@ -271,6 +318,224 @@ export async function POST(request: Request) {
               });
               result = { success: true, clientId: newClient.id, message: "Cliente registrado con éxito en el ERP." };
             }
+          } catch (e: any) {
+            result = { success: false, error: e.message };
+          }
+        } 
+        
+        else if (functionName === "solicitar_cotizacion_mexico") {
+          try {
+            const clientPhone = args.phone || phone || null;
+            let client = await db.client.findFirst({
+              where: {
+                active: true,
+                OR: [
+                  { name: { equals: args.name.trim(), mode: "insensitive" } },
+                  args.email ? { email: { equals: args.email.trim().toLowerCase(), mode: "insensitive" } } : undefined,
+                  clientPhone ? { phone: clientPhone } : undefined
+                ].filter(Boolean) as any
+              }
+            });
+
+            if (!client) {
+              client = await db.client.create({
+                data: {
+                  name: args.name.trim(),
+                  city: args.city.trim(),
+                  country: "México",
+                  email: args.email?.trim().toLowerCase() || null,
+                  phone: clientPhone,
+                  company: args.company?.trim() || null,
+                  active: true
+                }
+              });
+            }
+
+            await db.auditLog.create({
+              data: {
+                entity: "Client",
+                entityId: client.id,
+                action: "CREATE_PROSPECT_MEXICO",
+                details: JSON.stringify({
+                  m2: args.m2,
+                  tipoSuperficie: args.tipoSuperficie,
+                  color: args.color
+                })
+              }
+            });
+
+            await sendEmail({
+              to: "ventas@ikalchukum.com",
+              subject: `[Prospecto México] Nueva solicitud de cotización manual`,
+              text: `Se ha registrado un prospecto en México que requiere una cotización personalizada:\n\n` +
+                `- Cliente: ${args.name.trim()}\n` +
+                `- Ciudad: ${args.city.trim()}\n` +
+                `- Teléfono: ${clientPhone || "No proporcionado"}\n` +
+                `- Correo: ${args.email?.trim().toLowerCase() || "No proporcionado"}\n` +
+                `- Empresa/Estudio: ${args.company?.trim() || "No especificado"}\n` +
+                `- Metraje: ${args.m2} m²\n` +
+                `- Superficie: ${args.tipoSuperficie}\n` +
+                `- Color deseado: ${args.color}\n\n` +
+                `Por favor ponte en contacto para procesar la cotización manual.`
+            });
+
+            result = {
+              success: true,
+              message: "Tu solicitud ha sido registrada en nuestro sistema de México. Un asesor comercial especializado se pondrá en contacto contigo a la brevedad para enviarte la propuesta personalizada."
+            };
+          } catch (e: any) {
+            result = { success: false, error: e.message };
+          }
+        }
+
+        else if (functionName === "solicitar_cotizacion_usa") {
+          try {
+            const clientPhone = args.phone || phone || null;
+            let client = await db.client.findFirst({
+              where: {
+                active: true,
+                OR: [
+                  { name: { equals: args.name.trim(), mode: "insensitive" } },
+                  args.email ? { email: { equals: args.email.trim().toLowerCase(), mode: "insensitive" } } : undefined,
+                  clientPhone ? { phone: clientPhone } : undefined
+                ].filter(Boolean) as any
+              }
+            });
+
+            if (!client) {
+              client = await db.client.create({
+                data: {
+                  name: args.name.trim(),
+                  city: args.city.trim(),
+                  country: "Estados Unidos",
+                  zip: args.zip.trim(),
+                  address: args.address?.trim() || null,
+                  email: args.email?.trim().toLowerCase() || null,
+                  phone: clientPhone,
+                  company: args.company?.trim() || null,
+                  active: true
+                }
+              });
+            }
+
+            const warehouse = await db.warehouse.findFirst({
+              where: {
+                active: true,
+                OR: [
+                  { name: { contains: "Miami", mode: "insensitive" } },
+                  { city: { contains: "Miami", mode: "insensitive" } }
+                ]
+              }
+            });
+
+            if (!warehouse) {
+              throw new Error("Bodega de Miami no encontrada para cotizaciones de EE.UU.");
+            }
+
+            const adminUser = await db.user.findFirst({
+              where: { role: "ADMIN", active: true }
+            });
+
+            if (!adminUser) {
+              throw new Error("Usuario administrador no encontrado en el ERP.");
+            }
+
+            let divisor = 5; 
+            if (args.tipoSuperficie === "masilla") divisor = 9;
+            if (args.tipoSuperficie === "tablaroca") divisor = 14;
+            const kits = Math.ceil(args.m2 / divisor);
+
+            let sku = "KIT-NAT-001"; 
+            const lowerColor = args.color.toLowerCase();
+            if (lowerColor.includes("gris")) sku = "KIT-GRS-002";
+            else if (lowerColor.includes("rosa") || lowerColor.includes("palo")) sku = "KIT-PDR-003";
+            else if (lowerColor.includes("azul") || lowerColor.includes("maya")) sku = "KIT-AZM-004";
+            else if (lowerColor.includes("verde") || lowerColor.includes("jade")) sku = "KIT-VJD-005";
+            else if (lowerColor.includes("amarillo") || lowerColor.includes("hacienda")) sku = "KIT-AMH-006";
+            else if (lowerColor.includes("rojo") || lowerColor.includes("pixoy")) sku = "KIT-PXR-007";
+            else if (lowerColor.includes("negro")) sku = "KIT-NGR-008";
+            else if (lowerColor.includes("tierra") || lowerColor.includes("caf") || lowerColor.includes("rojiz")) sku = "KIT-TRA-009";
+
+            const product = await db.product.findUnique({
+              where: { sku }
+            });
+
+            if (!product) {
+              throw new Error(`Producto con SKU ${sku} no encontrado en el catálogo.`);
+            }
+
+            const itemPrice = product.basePrice;
+            const subtotal = kits * itemPrice;
+            const tax = 0; 
+            const total = subtotal;
+
+            const count = await db.quote.count();
+            const cleanClientName = args.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 15);
+            const dateStr = new Date().toISOString().split("T")[0];
+            const quoteNumber = `COT-${String(count + 101).padStart(4, "0")}-${cleanClientName}-${dateStr}`;
+
+            const quote = await db.$transaction(async (tx) => {
+              return await tx.quote.create({
+                data: {
+                  quoteNumber,
+                  clientId: client.id,
+                  userId: adminUser.id,
+                  warehouseId: warehouse.id,
+                  status: "DRAFT", 
+                  currency: "USD",
+                  exchangeRate: 1.0,
+                  subtotal,
+                  shippingCost: 0,
+                  discount: 0,
+                  tax,
+                  total,
+                  deliveryMethod: "ENVIO",
+                  notes: `Creada por Asesora Sofía vía WhatsApp. CP: ${args.zip}. Requiere cotización de flete y aprobación administrativa.`,
+                  shippingQuoteStatus: "PENDING_MIAMI",
+                  items: {
+                    create: [
+                      {
+                        productId: product.id,
+                        quantity: kits,
+                        unitPrice: itemPrice,
+                        total: subtotal
+                      }
+                    ]
+                  }
+                }
+              });
+            });
+
+            await db.auditLog.create({
+              data: {
+                entity: "Quote",
+                entityId: quote.id,
+                action: "CREATE",
+                details: JSON.stringify({ message: "Cotización creada por Sofía en borrador", quoteNumber })
+              }
+            });
+
+            await sendEmail({
+              to: "ventas@ikalchukum.com",
+              subject: `[Cotización EE.UU.] Nueva cotización pendiente de aprobación`,
+              text: `Se ha generado una cotización automática para un proyecto en EE.UU. que está pendiente de revisión de flete y aprobación:\n\n` +
+                `- Cliente: ${args.name.trim()}\n` +
+                `- Ciudad: ${args.city.trim()}\n` +
+                `- Código Postal: ${args.zip.trim()}\n` +
+                `- Teléfono: ${clientPhone || "No proporcionado"}\n` +
+                `- Correo: ${args.email?.trim().toLowerCase() || "No proporcionado"}\n` +
+                `- Cotización #: ${quoteNumber}\n` +
+                `- Producto: ${kits} kit(s) de Chukum ${product.name} (SKU: ${product.sku})\n` +
+                `- Monto Productos: $${subtotal.toFixed(2)} USD\n\n` +
+                `Por favor, ingresa al ERP para cotizar el flete, aprobarla y despacharla al cliente:\n` +
+                `https://app.ikalchukum.com/cotizaciones`
+            });
+
+            result = {
+              success: true,
+              quoteNumber,
+              message: `Tu cotización borrador (${quoteNumber}) ha sido registrada en el sistema de Estados Unidos. Un administrador revisará las tarifas de flete para tu código postal (${args.zip}) y te enviará la propuesta final aprobada a tu WhatsApp/correo a la brevedad.`
+            };
           } catch (e: any) {
             result = { success: false, error: e.message };
           }
