@@ -149,6 +149,20 @@ export async function POST(request: Request) {
     if (!openAiResponse.ok) {
       const errorData = await openAiResponse.json();
       console.error("OpenAI Error:", errorData);
+      
+      try {
+        await db.auditLog.create({
+          data: {
+            entity: "SofiaChat",
+            entityId: "OpenAIError",
+            action: "ERROR",
+            details: JSON.stringify({ errorData, body: { message, phone } })
+          }
+        });
+      } catch (dbErr) {
+        console.error("Failed to log OpenAI error:", dbErr);
+      }
+
       return NextResponse.json({ error: "Error al comunicarse con la IA de OpenAI" }, { status: 500 });
     }
 
@@ -286,11 +300,42 @@ export async function POST(request: Request) {
       if (!openAiResponse.ok) {
         const errorData = await openAiResponse.json();
         console.error("OpenAI Error en llamada secundaria:", errorData);
+        
+        try {
+          await db.auditLog.create({
+            data: {
+              entity: "SofiaChat",
+              entityId: "SecondaryOpenAIError",
+              action: "ERROR",
+              details: JSON.stringify({ errorData, body: { message, phone } })
+            }
+          });
+        } catch (dbErr) {
+          console.error("Failed to log secondary OpenAI error:", dbErr);
+        }
+
         return NextResponse.json({ error: "Error en procesamiento de respuesta de IA" }, { status: 500 });
       }
 
       responseData = await openAiResponse.json();
       choice = responseData.choices[0];
+    }
+
+    // Log success
+    try {
+      await db.auditLog.create({
+        data: {
+          entity: "SofiaChat",
+          entityId: "Success",
+          action: "LOG",
+          details: JSON.stringify({
+            request: { message, phone },
+            reply: choice.message.content
+          })
+        }
+      });
+    } catch (dbErr) {
+      console.error("Failed to log success:", dbErr);
     }
 
     // Retornar la respuesta final en formato JSON
@@ -301,6 +346,24 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("❌ Error en /api/chat/sofia:", error);
+    
+    try {
+      await db.auditLog.create({
+        data: {
+          entity: "SofiaChat",
+          entityId: "Exception",
+          action: "ERROR",
+          details: JSON.stringify({
+            error: error.message || "Error",
+            stack: error.stack || "",
+            requestBody: { message: request.body }
+          })
+        }
+      });
+    } catch (dbErr) {
+      console.error("Failed to log exception:", dbErr);
+    }
+
     return NextResponse.json(
       { error: error.message || "Error interno del servidor" },
       { status: 500 }
