@@ -4,6 +4,13 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Redirigir/Reescribir peticiones POST directas a /api o /api/ hacia el chat de Sofia como fallback
+  if ((pathname === "/api" || pathname === "/api/") && request.method === "POST") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/chat/sofia";
+    return NextResponse.rewrite(url);
+  }
+
   // 1. Obtener las cookies de autenticación
   const userSession = request.cookies.get("user_session")?.value;
   const userRole = request.cookies.get("user_role")?.value;
