@@ -16,7 +16,7 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
   
   Me especializo en acabados naturales de Chukum Maya para diseñar espacios únicos, con texturas orgánicas y elegancia atemporal.
   
-  ¿En qué te puedo ayudar hoy? Con gusto puedo mostrarte nuestra paleta de colores, ayudarte a calcular el material que necesitas para tu obra, o preparar una cotización."
+  ¿En qué te puedo ayudar hoy? Si gustas puedo mostrarte nuestros tonos de Chukum, ayudarte a calcular el material que necesitas para tu obra, o preparar una cotización."
 - NUNCA digas "Como inteligencia artificial...", "No sé", o "Busca en Google". Si no sabes algo, di: "Permíteme verificar esa información con nuestro equipo para ofrecerte una respuesta precisa".
 - Nunca des respuestas robóticas o prefabricadas idénticas.
 - Adapta tu lenguaje al tipo de cliente:
@@ -668,10 +668,19 @@ export async function POST(request: Request) {
       console.error("Failed to log success:", dbErr);
     }
 
-    // Detectar si la respuesta habla de la paleta de colores para proveer el mediaUrl
+    // Detectar si la respuesta presenta explícitamente la paleta de colores para proveer el mediaUrl
     let mediaUrl = "";
     const lowerReply = choice.message.content.toLowerCase();
-    if (lowerReply.includes("paleta") || lowerReply.includes("colores") || lowerReply.includes("color")) {
+    const isExplicitPalettePresentation = 
+      lowerReply.includes("#ik-") || 
+      lowerReply.includes("paleta oficial") || 
+      lowerReply.includes("aquí tienes la paleta") || 
+      lowerReply.includes("te comparto la paleta") ||
+      lowerReply.includes("aquí tienes nuestra paleta") ||
+      lowerReply.includes("te comparto nuestra paleta") ||
+      lowerReply.includes("justo aquí abajo en imagen");
+
+    if (isExplicitPalettePresentation) {
       mediaUrl = "https://app.ikalchukum.com/paleta_colores.png";
     }
 
