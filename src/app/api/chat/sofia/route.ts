@@ -253,7 +253,7 @@ export async function POST(request: Request) {
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages,
         tools,
         tool_choice: "auto"
@@ -628,7 +628,7 @@ export async function POST(request: Request) {
           "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-mini",
           messages: systemMessages
         })
       });
