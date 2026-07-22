@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import InventoryModals from "./InventoryModals";
 import InventoryTable from "./InventoryTable";
 
+import WarehouseExpenseButton from "./WarehouseExpenseButton";
+
 interface SearchParams {
   bodega?: string;
 }
@@ -90,15 +92,22 @@ export default async function InventarioPage({
             Monitorea el stock físico de tus productos en tiempo real por bodega.
           </p>
         </div>
-        {isAdmin && (
-          <div className="page-header-actions">
+        <div className="page-header-actions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          {isAdmin && (
             <InventoryModals 
               warehouses={warehouses} 
               products={products} 
               inventoryItems={allInventory} 
             />
-          </div>
-        )}
+          )}
+          {(userRole === "BODEGA" || isAdmin) && (
+            <WarehouseExpenseButton 
+              warehouseId={selectedWh.id} 
+              warehouseName={selectedWh.name} 
+              currency={selectedWh.country === "Estados Unidos" ? "USD" : "MXN"} 
+            />
+          )}
+        </div>
       </div>
 
       {/* Warehouse Selector (Real dynamic cards) */}
