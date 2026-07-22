@@ -27,6 +27,7 @@ export async function PATCH(
     const quote = await db.quote.findUnique({
       where: { id },
       include: {
+        client: true,
         items: {
           include: { product: true }
         }
@@ -114,6 +115,15 @@ export async function PATCH(
         details: JSON.stringify({ message: `Estado actualizado a ${status}`, stockWarning })
       }
     });
+
+    // Si la cotización pasa a APPROVED o SENT y el cliente tiene teléfono, enviar el PDF por WhatsApp vía ManyChat
+    if ((status === "APPROVED" || status === "SENT") && quote.client?.phone) {
+      import("@/lib/manychat").then((mc) => {
+        mc.sendManychatQuotePdf(quote.client.phone!, id).catch((err) => {
+          console.error("Error al enviar cotización PDF por ManyChat en segundo plano:", err);
+        });
+      });
+    }
 
     return NextResponse.json({ 
       success: true, 
