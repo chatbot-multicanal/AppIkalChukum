@@ -122,6 +122,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
     }
 
+    let sofiaAlertaAdmin = "";
+
     let apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey || apiKey.trim() === "") {
       const dbSetting = await db.systemSetting.findUnique({
@@ -371,7 +373,7 @@ export async function POST(request: Request) {
             });
 
             await sendEmail({
-              to: "ventas@ikalchukum.com",
+              to: "ventas@ikalchukum.com, asf2485@gmail.com, admin@ikalchukum.com",
               subject: `[Prospecto México] Nueva solicitud de cotización manual`,
               text: `Se ha registrado un prospecto en México que requiere una cotización personalizada:\n\n` +
                 `- Cliente: ${args.name.trim()}\n` +
@@ -384,6 +386,8 @@ export async function POST(request: Request) {
                 `- Color deseado: ${args.color}\n\n` +
                 `Por favor ponte en contacto para procesar la cotización manual.`
             });
+
+            sofiaAlertaAdmin = `🚨 Nuevo Prospecto registrado para México: ${args.name.trim()} (${args.city.trim()}). Requiere cotización manual de ${args.m2} m² (${args.tipoSuperficie}) en color ${args.color}.`;
 
             result = {
               success: true,
@@ -522,7 +526,7 @@ export async function POST(request: Request) {
             });
 
             await sendEmail({
-              to: "ventas@ikalchukum.com",
+              to: "ventas@ikalchukum.com, asf2485@gmail.com, admin@ikalchukum.com",
               subject: `[Cotización EE.UU.] Nueva cotización pendiente de aprobación`,
               text: `Se ha generado una cotización automática para un proyecto en EE.UU. que está pendiente de revisión de flete y aprobación:\n\n` +
                 `- Cliente: ${args.name.trim()}\n` +
@@ -536,6 +540,8 @@ export async function POST(request: Request) {
                 `Por favor, ingresa al ERP para cotizar el flete, aprobarla y despacharla al cliente:\n` +
                 `https://app.ikalchukum.com/cotizaciones`
             });
+
+            sofiaAlertaAdmin = `📄 Nueva cotización de EE.UU. creada para ${args.name.trim()} (COT: ${quoteNumber}). Pendiente de flete (CP: ${args.zip}) y aprobación comercial.`;
 
             result = {
               success: true,
@@ -688,7 +694,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       reply: choice.message.content,
-      mediaUrl
+      mediaUrl,
+      sofia_alerta_admin: sofiaAlertaAdmin
     });
 
   } catch (error: any) {

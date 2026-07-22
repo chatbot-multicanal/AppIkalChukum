@@ -98,9 +98,9 @@ export async function sendOrderStatusNotification(order: any, oldStatus: string,
 
   text += `\nEste es un correo automático generado por el CRM de Ikal Chukum.`;
 
-  // 1. Notificar a ventas centralizada
+  // 1. Notificar a ventas centralizada y admins
   await sendEmail({
-    to: "ventas@ikalchukum.com",
+    to: "ventas@ikalchukum.com, asf2485@gmail.com, admin@ikalchukum.com",
     subject,
     text,
   });
@@ -133,9 +133,9 @@ export async function sendCommentNotification(comment: any, productSku?: string,
   text += `Fecha: ${new Date(comment.createdAt).toLocaleString("es-MX")}\n\n`;
   text += `Revisa los detalles en tu CRM Ikal Chukum.`;
 
-  // Notificar a ventas centralizada
+  // Notificar a ventas centralizada y admins
   await sendEmail({
-    to: "ventas@ikalchukum.com",
+    to: "ventas@ikalchukum.com, asf2485@gmail.com, admin@ikalchukum.com",
     subject,
     text,
   });
