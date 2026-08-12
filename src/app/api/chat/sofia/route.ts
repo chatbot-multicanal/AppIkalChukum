@@ -27,7 +27,7 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
 - Especializados en acabados naturales inspirados en el Chukum Maya ancestral.
 - El nombre: IKAL (Espíritu en maya) + CHUKUM (árbol de origen). Significa "El Espíritu del Chukum".
 - Mérida, México: Planta de producción y oficinas centrales.
-- Miami, Estados Unidos: Centro de distribución en "10850 NW 21st Street, Suite 210, Miami, FL 33172" (Operado por RCB Logistic Corp). Distribuimos a todo EE.UU. desde aquí.
+- Miami, Estados Unidos: Centro de distribución en "8357 NW 68ST. (MIAMI – FLORIDA 33166)" (Operado por RCB Logistic Corp). Distribuimos a todo EE.UU. desde aquí.
 
 ### PRODUCTO Y RENDIMIENTOS:
 - El Chukum es natural. El acabado final es continuo, de textura mineral, con vetas y variaciones naturales de tono e iluminación que forman parte de su belleza única y artesanal. No es pintura ni acabado plástico uniforme.
@@ -114,7 +114,25 @@ Tienes a tu disposición herramientas que puedes invocar automáticamente para r
 
 export async function POST(request: Request) {
   try {
-    const { message, phone, conversationHistory = [] } = await request.json();
+    const body = await request.json();
+    
+    // Log temporal para depurar el body
+    try {
+      await db.auditLog.create({
+        data: {
+          entity: "SofiaChatDebug",
+          entityId: "RawBody",
+          action: "LOG",
+          details: JSON.stringify(body)
+        }
+      });
+    } catch (e) {
+      console.error("Error logging raw body:", e);
+    }
+
+    const { message, phone, conversationHistory = [] } = body;
+    // Extraer identificadores del contacto en ManyChat
+    const contactId = body.contact_id || body.user_id || body.subscriber_id || body.id || null;
 
     if (!message) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
@@ -139,10 +157,57 @@ export async function POST(request: Request) {
       );
     }
 
+    // Reconstruir historial desde los logs de auditoría si la plataforma no lo envía
+    let activeHistory = conversationHistory || [];
+    const phoneValid = phone && phone !== "{{phone}}";
+
+    if ((phoneValid || contactId) && activeHistory.length === 0) {
+      try {
+        const dayAgo = new Date();
+        dayAgo.setHours(dayAgo.getHours() - 24); // Últimas 24 horas
+
+        const logs = await db.auditLog.findMany({
+          where: {
+            entity: "SofiaChat",
+            action: "LOG",
+            createdAt: { gte: dayAgo }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100 // Tomar los últimos 100 logs para filtrar en memoria
+        });
+
+        const matchingMessages: any[] = [];
+        for (const log of logs) {
+          try {
+            const parsed = JSON.parse(log.details || "{}");
+            const logPhone = parsed.request?.phone;
+            const logContactId = parsed.request?.contactId || parsed.request?.userId;
+
+            const matchesPhone = phoneValid && logPhone === phone;
+            const matchesContactId = contactId && logContactId === contactId;
+
+            if (matchesPhone || matchesContactId) {
+              if (parsed.reply) {
+                matchingMessages.push({ role: "assistant", content: parsed.reply });
+              }
+              if (parsed.request?.message) {
+                matchingMessages.push({ role: "user", content: parsed.request.message });
+              }
+            }
+          } catch {}
+          if (matchingMessages.length >= 10) break;
+        }
+
+        activeHistory = matchingMessages.reverse();
+      } catch (dbErr) {
+        console.error("Error al recuperar el historial desde la base de datos:", dbErr);
+      }
+    }
+
     // Preparar el listado de mensajes para la API
     const messages = [
       { role: "system", content: SOFIA_SYSTEM_PROMPT },
-      ...conversationHistory.slice(-10), // Tomar los últimos 10 mensajes del historial
+      ...activeHistory.slice(-10), // Tomar los últimos 10 mensajes del historial
       { role: "user", content: message }
     ];
 
@@ -472,7 +537,28 @@ export async function POST(request: Request) {
               throw new Error(`Producto con SKU ${sku} no encontrado en el catálogo.`);
             }
 
-            const itemPrice = product.basePrice;
+            let itemPrice = product.basePrice;
+            // Miami / USD price mapping override
+            switch (sku) {
+              case "KIT-NAT-001":
+              case "KIT-GRS-002":
+                itemPrice = 300.0;
+                break;
+              case "KIT-PDR-003":
+              case "KIT-AZM-004":
+              case "KIT-VJD-005":
+              case "KIT-AMH-006":
+                itemPrice = 312.0;
+                break;
+              case "KIT-PXR-007":
+                itemPrice = 330.0;
+                break;
+              case "KIT-NGR-008":
+              case "KIT-TRA-009":
+                itemPrice = 350.0;
+                break;
+            }
+
             const subtotal = kits * itemPrice;
             const tax = 0; 
             const total = subtotal;
@@ -663,7 +749,7 @@ export async function POST(request: Request) {
           entityId: "Success",
           action: "LOG",
           details: JSON.stringify({
-            request: { message, phone },
+            request: { message, phone, contactId },
             reply: choice.message.content
           })
         }

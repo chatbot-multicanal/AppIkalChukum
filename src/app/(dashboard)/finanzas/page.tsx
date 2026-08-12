@@ -70,6 +70,10 @@ export default function FinanzasPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Bodegas
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("ALL");
+
   // Filtros de tabla
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
@@ -83,13 +87,28 @@ export default function FinanzasPage() {
     currency: "MXN",
     exchangeRate: "1.0",
     description: "",
-    date: new Date().toISOString().split("T")[0]
+    date: new Date().toISOString().split("T")[0],
+    warehouseId: ""
   });
 
-  const loadData = async () => {
+  const openModal = () => {
+    setFormData({
+      type: "EXPENSE",
+      category: "RENTA",
+      amount: "",
+      currency: "MXN",
+      exchangeRate: "1.0",
+      description: "",
+      date: new Date().toISOString().split("T")[0],
+      warehouseId: (selectedWarehouse !== "ALL" && selectedWarehouse !== "GLOBAL") ? selectedWarehouse : ""
+    });
+    setShowModal(true);
+  };
+
+  const loadData = async (warehouseId = "ALL") => {
     setLoading(true);
     try {
-      const response = await fetch("/api/finanzas?months=6");
+      const response = await fetch(`/api/finanzas?months=6&warehouseId=${warehouseId}`);
       if (!response.ok) {
         throw new Error("Error al obtener la información financiera.");
       }
@@ -99,6 +118,9 @@ export default function FinanzasPage() {
         setChartData(data.chartData);
         setCategoryBreakdown(data.categoryBreakdown);
         setRecords(data.records);
+        if (data.warehouses) {
+          setWarehouses(data.warehouses);
+        }
       }
     } catch (error: any) {
       console.error(error);
@@ -109,8 +131,8 @@ export default function FinanzasPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData(selectedWarehouse);
+  }, [selectedWarehouse]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -151,9 +173,10 @@ export default function FinanzasPage() {
         currency: "MXN",
         exchangeRate: "1.0",
         description: "",
-        date: new Date().toISOString().split("T")[0]
+        date: new Date().toISOString().split("T")[0],
+        warehouseId: ""
       });
-      loadData();
+      loadData(selectedWarehouse);
     } catch (error: any) {
       alert(`Error: ${error.message}`);
     } finally {
@@ -173,7 +196,7 @@ export default function FinanzasPage() {
         const result = await response.json();
         throw new Error(result.error || "Error al eliminar el registro.");
       }
-      loadData();
+      loadData(selectedWarehouse);
     } catch (error: any) {
       alert(`Error: ${error.message}`);
     }
@@ -198,7 +221,7 @@ export default function FinanzasPage() {
     <main className="main-content animate-fade-in" style={{ padding: "30px", fontFamily: "'Outfit', sans-serif", color: "#f3f4f6" }}>
       
       {/* HEADER */}
-      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" }}>
+      <div className="page-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px", flexWrap: "wrap", gap: "20px" }}>
         <div>
           <h1 style={{ fontSize: "2.4rem", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.5px", marginBottom: "6px" }}>
             Finanzas y Métricas del Negocio
@@ -207,14 +230,41 @@ export default function FinanzasPage() {
             Visualiza el balance de la empresa, ingresos automáticos y costos operativos de las bodegas.
           </p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)} 
-          className="btn-premium btn-primary-teal"
-          style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.95rem", fontWeight: 700 }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          Registrar Movimiento Manual
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "15px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700 }}>BODEGA:</span>
+            <select 
+              value={selectedWarehouse} 
+              onChange={(e) => setSelectedWarehouse(e.target.value)}
+              style={{ 
+                background: "rgba(255,255,255,0.06)", 
+                color: "white", 
+                border: "1px solid var(--border-color)", 
+                padding: "10px 16px", 
+                borderRadius: "10px", 
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                outline: "none",
+                cursor: "pointer"
+              }}
+            >
+              <option value="ALL">🌐 Todas las Bodegas</option>
+              <option value="GLOBAL">🏢 Solo Global / Admin</option>
+              {warehouses.map(wh => (
+                <option key={wh.id} value={wh.id}>📍 {wh.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <button 
+            onClick={openModal} 
+            className="btn-premium btn-primary-teal"
+            style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.95rem", fontWeight: 700 }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Registrar Movimiento Manual
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -618,6 +668,21 @@ export default function FinanzasPage() {
                     style={{ width: "100%", background: formData.currency === "MXN" ? "rgba(255,255,255,0.01)" : "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "10px", color: formData.currency === "MXN" ? "#6b7280" : "white" }}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>BODEGA ASOCIADA</label>
+                <select 
+                  name="warehouseId" 
+                  value={formData.warehouseId} 
+                  onChange={handleInputChange}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "10px", color: "white" }}
+                >
+                  <option value="">🏢 Ninguna (Gasto General / Global)</option>
+                  {warehouses.map(wh => (
+                    <option key={wh.id} value={wh.id}>📍 {wh.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div>

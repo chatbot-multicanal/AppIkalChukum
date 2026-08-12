@@ -606,3 +606,12 @@ body {
   }
 }
 
+/* Fix select options styling for dark mode */
+select {
+  color-scheme: dark !important;
+}
+select option {
+  background-color: #0c0f17 !important;
+  color: #ffffff !important;
+}
+

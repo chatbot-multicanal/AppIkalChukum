@@ -30,6 +30,104 @@ interface InventoryTableProps {
   userRole?: string;
 }
 
+const getDisplayPrice = (
+  sku: string, 
+  originalPrice: number, 
+  isCostPrice: boolean, 
+  isMiami: boolean, 
+  mode: "kit" | "unit"
+): number => {
+  if (isMiami) {
+    if (mode === "kit") {
+      switch (sku) {
+        case "BIDON-RES-001":
+          return isCostPrice ? 70.0 : 90.0;
+        case "SACO-NAT-001":
+        case "SACO-GRS-002":
+          return isCostPrice ? 220.0 : 300.0;
+        case "SACO-PDR-003":
+        case "SACO-AZM-004":
+        case "SACO-VJD-005":
+        case "SACO-AMH-006":
+          return isCostPrice ? 232.0 : 312.0;
+        case "SACO-PXR-007":
+          return isCostPrice ? 250.0 : 330.0;
+        case "SACO-NGR-008":
+        case "SACO-TRA-009":
+          return isCostPrice ? 270.0 : 350.0;
+        default:
+          return originalPrice;
+      }
+    } else {
+      switch (sku) {
+        case "BIDON-RES-001":
+          return isCostPrice ? 70.0 : 90.0;
+        case "SACO-NAT-001":
+          return isCostPrice ? 50.0 : 70.0;
+        case "SACO-GRS-002":
+        case "SACO-PDR-003":
+        case "SACO-AZM-004":
+        case "SACO-VJD-005":
+        case "SACO-AMH-006":
+          return isCostPrice ? 54.0 : 74.0;
+        case "SACO-PXR-007":
+          return isCostPrice ? 60.0 : 80.0;
+        case "SACO-NGR-008":
+        case "SACO-TRA-009":
+          return isCostPrice ? 66.66 : 86.66;
+        default:
+          return originalPrice;
+      }
+    }
+  } else {
+    if (mode === "kit") {
+      switch (sku) {
+        case "SACO-NAT-001":
+        case "SACO-GRS-002":
+          return isCostPrice ? 805.0 : 1300.0;
+        case "SACO-PDR-003":
+        case "SACO-AZM-004":
+        case "SACO-VJD-005":
+        case "SACO-AMH-006":
+          return isCostPrice ? 850.0 : 1350.0;
+        case "SACO-PXR-007":
+          return isCostPrice ? 850.0 : 1400.0;
+        case "SACO-NGR-008":
+        case "SACO-TRA-009":
+          return isCostPrice ? 850.0 : 1500.0;
+        default:
+          return originalPrice;
+      }
+    } else {
+      return originalPrice;
+    }
+  }
+};
+
+const formatName = (name: string, isMiami: boolean, mode: "kit" | "unit"): string => {
+  if (mode === "kit") {
+    return name.replace("Saco ", "Kit ");
+  }
+  return name;
+};
+
+const formatSku = (sku: string, isMiami: boolean, mode: "kit" | "unit"): string => {
+  if (mode === "kit") {
+    return sku.replace("SACO-", "KIT-");
+  }
+  return sku;
+};
+
+const formatUnit = (sku: string, isMiami: boolean, plural: boolean, mode: "kit" | "unit"): string => {
+  if (sku.startsWith("BIDON-")) {
+    return plural ? "bidones" : "bidón";
+  }
+  if (mode === "kit") {
+    return plural ? "kits" : "kit";
+  }
+  return plural ? "sacos" : "saco";
+};
+
 export default function InventoryTable({
   initialItems,
   warehouseId,
@@ -40,6 +138,7 @@ export default function InventoryTable({
 }: InventoryTableProps) {
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
+  const [viewMode, setViewMode] = useState<"kit" | "unit">("kit");
 
   // Comments states
   const [comments, setComments] = useState<any[]>([]);
@@ -106,16 +205,24 @@ export default function InventoryTable({
 
   const handleExportExcel = () => {
     import("xlsx").then((XLSX) => {
-      const dataToExport = items.map((item) => ({
-        "SKU": item.product.sku,
-        "Producto": item.product.name,
-        "Color": item.product.color || "N/A",
-        "Bodega": warehouseName,
-        "Cantidad": item.quantity,
-        "Estado": item.quantity === 0 ? "Agotado" : item.quantity < LOW_STOCK_THRESHOLD ? "Stock Bajo" : "Suficiente",
-        ...(showCost ? { "Costo Compra": item.product.costPrice } : {}),
-        "Precio Base": item.product.basePrice,
-      }));
+      const isMiami = warehouseName.includes("Miami");
+      const dataToExport = items.map((item) => {
+        const sku = formatSku(item.product.sku, isMiami, viewMode);
+        const name = formatName(item.product.name, isMiami, viewMode);
+        const costPrice = getDisplayPrice(item.product.sku, item.product.costPrice || 0, true, isMiami, viewMode);
+        const basePrice = getDisplayPrice(item.product.sku, item.product.basePrice, false, isMiami, viewMode);
+
+        return {
+          "SKU": sku,
+          "Producto": name,
+          "Color": item.product.color || "N/A",
+          "Bodega": warehouseName,
+          "Cantidad": item.quantity,
+          "Estado": item.quantity === 0 ? "Agotado" : item.quantity < LOW_STOCK_THRESHOLD ? "Stock Bajo" : "Suficiente",
+          ...(showCost ? { "Costo Compra": costPrice } : {}),
+          "Precio Base": basePrice,
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
       const workbook = XLSX.utils.book_new();
@@ -226,7 +333,43 @@ export default function InventoryTable({
         <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--text-main)", margin: 0 }}>
           Stock en {warehouseName}
         </h2>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+          {/* Selector de modo de vista */}
+          <div style={{ display: "flex", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.08)", marginRight: "10px" }}>
+            <button
+              onClick={() => setViewMode("kit")}
+              style={{
+                background: viewMode === "kit" ? "var(--primary-teal)" : "none",
+                color: viewMode === "kit" ? "#ffffff" : "var(--text-secondary)",
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              📦 Vista por Kit
+            </button>
+            <button
+              onClick={() => setViewMode("unit")}
+              style={{
+                background: viewMode === "unit" ? "var(--primary-teal)" : "none",
+                color: viewMode === "unit" ? "#ffffff" : "var(--text-secondary)",
+                border: "none",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              🛍️ Vista por Unidad (Saco)
+            </button>
+          </div>
+
           <button
             onClick={() => setIsGeneralCommentsOpen(true)}
             className="btn-premium btn-secondary-sage"
@@ -272,7 +415,7 @@ export default function InventoryTable({
                   <tr key={item.id}>
                     <td>
                       <div style={{ fontWeight: 700, color: "#ffffff" }}>
-                        {item.product.name}
+                        {formatName(item.product.name, warehouseName.includes("Miami"), viewMode)}
                       </div>
                       <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
                         Color: {item.product.color || "N/A"}
@@ -280,17 +423,29 @@ export default function InventoryTable({
                     </td>
                     <td>
                       <span style={{ fontFamily: "monospace", color: "var(--text-secondary)" }}>
-                        {item.product.sku}
+                        {formatSku(item.product.sku, warehouseName.includes("Miami"), viewMode)}
                       </span>
                     </td>
                     <td>{warehouseName}</td>
                     {showCost && (
                       <td style={{ color: "var(--text-secondary)" }}>
-                        ${item.product.costPrice?.toLocaleString("es-MX", { minimumFractionDigits: 2 }) || "-"} {warehouseName.includes("Miami") ? "USD" : "MXN"}
+                        ${getDisplayPrice(
+                          item.product.sku,
+                          item.product.costPrice || 0,
+                          true,
+                          warehouseName.includes("Miami"),
+                          viewMode
+                        ).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {warehouseName.includes("Miami") ? "USD" : "MXN"}
                       </td>
                     )}
                     <td>
-                      ${item.product.basePrice.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {warehouseName.includes("Miami") ? "USD" : "MXN"}
+                      ${getDisplayPrice(
+                        item.product.sku,
+                        item.product.basePrice,
+                        false,
+                        warehouseName.includes("Miami"),
+                        viewMode
+                      ).toLocaleString("es-MX", { minimumFractionDigits: 2 })} {warehouseName.includes("Miami") ? "USD" : "MXN"}
                     </td>
                     <td style={{ fontWeight: 700, fontSize: "1.05rem", color: isLowStock && item.quantity > 0 ? "#ff9f43" : item.quantity === 0 ? "#ef4444" : "#ffffff" }}>
                       {item.quantity.toFixed(1)}
@@ -368,8 +523,8 @@ export default function InventoryTable({
 
             <div style={{ marginBottom: "16px", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)", fontSize: "0.85rem" }}>
               <div><strong>Bodega:</strong> {warehouseName}</div>
-              <div><strong>Producto:</strong> {adjustingItem.product.name} ({adjustingItem.product.sku})</div>
-              <div><strong>Stock Actual:</strong> <span style={{ fontWeight: "bold" }}>{adjustingItem.quantity.toFixed(1)} {adjustingItem.product.sku.startsWith("BIDON-") ? "bidones" : "sacos"}</span></div>
+              <div><strong>Producto:</strong> {formatName(adjustingItem.product.name, warehouseName.includes("Miami"), viewMode)} ({formatSku(adjustingItem.product.sku, warehouseName.includes("Miami"), viewMode)})</div>
+              <div><strong>Stock Actual:</strong> <span style={{ fontWeight: "bold" }}>{adjustingItem.quantity.toFixed(1)} {formatUnit(adjustingItem.product.sku, warehouseName.includes("Miami"), true, viewMode)}</span></div>
             </div>
 
             {error && <div style={errorStyle}>⚠️ {error}</div>}
@@ -414,7 +569,7 @@ export default function InventoryTable({
               </div>
 
               <div style={inputGroupStyle}>
-                <label style={labelStyle}>Cantidad ({adjustingItem.product.sku.startsWith("BIDON-") ? "Bidones" : "Sacos"}) *</label>
+                <label style={labelStyle}>Cantidad ({formatUnit(adjustingItem.product.sku, warehouseName.includes("Miami"), true, viewMode).charAt(0).toUpperCase() + formatUnit(adjustingItem.product.sku, warehouseName.includes("Miami"), true, viewMode).slice(1)}) *</label>
                 <input
                   type="number"
                   step="0.1"
@@ -474,7 +629,7 @@ export default function InventoryTable({
 
             <div style={{ marginBottom: "16px", background: "rgba(255,255,255,0.02)", padding: "12px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.05)", fontSize: "0.85rem" }}>
               <div><strong>Bodega:</strong> {warehouseName}</div>
-              <div><strong>Producto:</strong> {historyItem.product.name} ({historyItem.product.sku})</div>
+              <div><strong>Producto:</strong> {formatName(historyItem.product.name, warehouseName.includes("Miami"), viewMode)} ({formatSku(historyItem.product.sku, warehouseName.includes("Miami"), viewMode)})</div>
             </div>
 
             {isLoadingHistory ? (
@@ -614,12 +769,12 @@ export default function InventoryTable({
         <div style={modalBackdropStyle} onClick={() => { setCommentingItem(null); setNewCommentText(""); }}>
           <div className="modal-content-card" style={{ maxWidth: "550px", width: "95%", background: "rgba(18, 24, 38, 0.95)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "20px", padding: "30px", color: "#ffffff", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }} onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
-              <h2 style={{ fontSize: "1.2rem", fontWeight: 700 }}>💬 Notas: {commentingItem.product.name}</h2>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700 }}>💬 Notas: {formatName(commentingItem.product.name, warehouseName.includes("Miami"), viewMode)}</h2>
               <button onClick={() => { setCommentingItem(null); setNewCommentText(""); }} style={closeButtonStyle}>×</button>
             </div>
 
             <div style={{ marginBottom: "16px", background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "8px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-              SKU: {commentingItem.product.sku} | Bodega: {warehouseName} | Stock: {commentingItem.quantity.toFixed(1)} sacos/bidones
+              SKU: {formatSku(commentingItem.product.sku, warehouseName.includes("Miami"), viewMode)} | Bodega: {warehouseName} | Stock: {commentingItem.quantity.toFixed(1)} {formatUnit(commentingItem.product.sku, warehouseName.includes("Miami"), true, viewMode)}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px", maxHeight: "250px", overflowY: "auto", paddingRight: "6px" }}>

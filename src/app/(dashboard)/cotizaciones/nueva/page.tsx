@@ -228,6 +228,22 @@ export default function NuevaCotizacionPage() {
         case "KIT-NGR-008":
         case "KIT-TRA-009":
           return 350.0;
+        // Sacos e individuales
+        case "BIDON-RES-001":
+          return 90.0;
+        case "SACO-NAT-001":
+          return 70.0;
+        case "SACO-GRS-002":
+        case "SACO-PDR-003":
+        case "SACO-AZM-004":
+        case "SACO-VJD-005":
+        case "SACO-AMH-006":
+          return 74.0;
+        case "SACO-PXR-007":
+          return 80.0;
+        case "SACO-NGR-008":
+        case "SACO-TRA-009":
+          return 86.66;
         default:
           return originalBasePrice;
       }

@@ -21,9 +21,24 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const monthsParam = searchParams.get("months") || "6"; // Por defecto, últimos 6 meses
     const limitMonths = parseInt(monthsParam);
+    const warehouseQuery = searchParams.get("warehouseId") || "ALL";
+
+    const manualWhere: any = {};
+    const quoteWhere: any = { status: "APPROVED" };
+
+    if (warehouseQuery !== "ALL") {
+      if (warehouseQuery === "GLOBAL" || warehouseQuery === "NONE") {
+        manualWhere.warehouseId = null;
+        quoteWhere.warehouseId = null;
+      } else {
+        manualWhere.warehouseId = warehouseQuery;
+        quoteWhere.warehouseId = warehouseQuery;
+      }
+    }
 
     // 1. Obtener todos los registros financieros manuales
     const manualRecords = await db.financeRecord.findMany({
+      where: manualWhere,
       include: {
         warehouse: {
           select: { name: true }
@@ -37,9 +52,7 @@ export async function GET(request: Request) {
 
     // 2. Obtener todas las cotizaciones aprobadas (Ventas automáticas)
     const approvedQuotes = await db.quote.findMany({
-      where: {
-        status: "APPROVED"
-      },
+      where: quoteWhere,
       include: {
         warehouse: {
           select: { name: true }
@@ -142,6 +155,12 @@ export async function GET(request: Request) {
       value
     }));
 
+    // Obtener todas las bodegas activas
+    const warehouses = await db.warehouse.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" }
+    });
+
     return NextResponse.json({
       success: true,
       summary: {
@@ -153,7 +172,8 @@ export async function GET(request: Request) {
       },
       chartData,
       categoryBreakdown,
-      records: manualRecords
+      records: manualRecords,
+      warehouses
     });
 
   } catch (error: any) {
