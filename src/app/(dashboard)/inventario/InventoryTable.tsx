@@ -206,7 +206,9 @@ export default function InventoryTable({
   const handleExportExcel = () => {
     import("xlsx").then((XLSX) => {
       const isMiami = warehouseName.includes("Miami");
-      const dataToExport = items.map((item) => {
+      const dataToExport = items
+        .filter((item) => !(viewMode === "kit" && item.product.sku === "BIDON-RES-001"))
+        .map((item) => {
         const sku = formatSku(item.product.sku, isMiami, viewMode);
         const name = formatName(item.product.name, isMiami, viewMode);
         const costPrice = getDisplayPrice(item.product.sku, item.product.costPrice || 0, true, isMiami, viewMode);
@@ -409,7 +411,9 @@ export default function InventoryTable({
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
+              items
+                .filter((item) => !(viewMode === "kit" && item.product.sku === "BIDON-RES-001"))
+                .map((item) => {
                 const isLowStock = item.quantity < LOW_STOCK_THRESHOLD;
                 return (
                   <tr key={item.id}>
