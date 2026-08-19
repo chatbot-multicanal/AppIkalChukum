@@ -259,3 +259,18 @@ export async function approveQuoteAction(quoteId: string) {
     };
   }
 }
+
+export async function getPendingFreightCountAction() {
+  try {
+    const count = await db.quote.count({
+      where: {
+        shippingQuoteStatus: "PENDING_MIAMI",
+        status: { not: "APPROVED" }
+      }
+    });
+    return { count };
+  } catch (error) {
+    console.error("Error in getPendingFreightCountAction:", error);
+    return { count: 0 };
+  }
+}

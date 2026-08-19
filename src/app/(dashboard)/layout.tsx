@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import "../globals.css";
+import { getPendingFreightCountAction } from "@/app/(dashboard)/cotizaciones/actions";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [userName, setUserName] = useState("Cargando...");
   const [userRole, setUserRole] = useState("VENDEDOR");
+  const [pendingFreightCount, setPendingFreightCount] = useState(0);
 
   // Helper client-side para leer cookies
   useEffect(() => {
@@ -25,8 +27,23 @@ export default function DashboardLayout({
       return "";
     };
 
+    const role = getCookie("user_role") || "VENDEDOR";
     setUserName(getCookie("user_name") || "Usuario");
-    setUserRole(getCookie("user_role") || "VENDEDOR");
+    setUserRole(role);
+
+    // Fetch count if Admin or Bodega
+    if (role === "BODEGA" || role === "ADMIN") {
+      getPendingFreightCountAction().then((res) => {
+        setPendingFreightCount(res.count);
+      });
+      
+      const interval = setInterval(() => {
+        getPendingFreightCountAction().then((res) => {
+          setPendingFreightCount(res.count);
+        });
+      }, 30000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const handleLogout = async () => {
@@ -168,7 +185,26 @@ export default function DashboardLayout({
                 onClick={() => setIsSidebarOpen(false)} // Close sidebar when clicked
               >
                 {item.icon}
-                {item.name}
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <span>{item.name}</span>
+                  {item.name === "Cotizaciones" && pendingFreightCount > 0 && (
+                    <span style={{ 
+                      background: '#ff9f43', 
+                      color: '#ffffff', 
+                      fontSize: '0.7rem', 
+                      fontWeight: 800, 
+                      padding: '2px 6px', 
+                      borderRadius: '10px', 
+                      lineHeight: '1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(255, 159, 67, 0.4)'
+                    }}>
+                      {pendingFreightCount}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}
