@@ -486,6 +486,11 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
       duration = shippingDuration;
     }
 
+    let finalShippingQuoteStatus = shippingQuoteStatus;
+    if (deliveryMethod === "ENVIO" && (userRole === "BODEGA" || finalShippingCost > 0)) {
+      finalShippingQuoteStatus = "QUOTED";
+    }
+
     try {
       const response = await fetch(`/api/cotizaciones/${id}`, {
         method: "PUT",
@@ -501,7 +506,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
           notes,
           shippingCarrier: carrier,
           shippingDuration: duration,
-          shippingQuoteStatus,
+          shippingQuoteStatus: finalShippingQuoteStatus,
           shippingOptions,
           items: items.map(it => ({
             productId: it.productId,

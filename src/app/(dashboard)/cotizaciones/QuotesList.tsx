@@ -22,6 +22,7 @@ interface Quote {
   subtotal: number;
   tax: number;
   total: number;
+  shippingCost?: number;
   deliveryMethod?: string;
   shippingQuoteStatus?: string;
   shippingOptions?: string | null;
@@ -328,14 +329,14 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                             quote.status === "REJECTED" ? "badge-cancelled" : 
                             "badge-pending"
                           }`} style={{ alignSelf: "flex-start" }}>
-                            {quote.status === "APPROVED" ? "Aprobada" : 
-                             quote.status === "SENT" ? "Enviada" : 
-                             quote.status === "REJECTED" ? "Rechazada" : 
-                             "Pendiente Aprobación"}
+                             {quote.status === "APPROVED" ? "Aprobada" : 
+                              quote.status === "SENT" ? "Enviada" : 
+                              quote.status === "REJECTED" ? "Rechazada" : 
+                              "Pendiente Aprobación"}
                           </span>
                         )}
 
-                        {quote.shippingQuoteStatus === "PENDING_MIAMI" && (
+                        {quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) === 0 && (
                           <span className="badge" style={{
                             backgroundColor: "rgba(255, 159, 67, 0.08)",
                             color: "#ff9f43",
@@ -348,7 +349,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                           </span>
                         )}
 
-                        {quote.shippingQuoteStatus === "QUOTED" && (
+                        {(quote.shippingQuoteStatus === "QUOTED" || (quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) > 0)) && (
                           <span className="badge" style={{
                             backgroundColor: "rgba(164, 189, 145, 0.08)",
                             color: "var(--primary-sage)",
@@ -498,7 +499,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                                   border: '1px solid rgba(255, 255, 255, 0.15)'
                                 }}
                               >
-                                {quote.shippingQuoteStatus === "PENDING_MIAMI" ? "Agregar Costo Envío" : "Editar"}
+                                {quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) === 0 ? "Agregar Costo Envío" : "Editar"}
                               </button>
                             </Link>
                           )}

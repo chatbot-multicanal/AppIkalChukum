@@ -450,6 +450,11 @@ export default function NuevaCotizacionPage() {
       duration = isNaN(days) ? `${selectedRate.estimated_days} days` : `${days + 1} ${days + 1 === 1 ? 'day' : 'days'}`;
     }
 
+    let finalShippingQuoteStatus = shippingQuoteStatus;
+    if (deliveryMethod === "ENVIO" && (userRole === "BODEGA" || finalShippingCost > 0)) {
+      finalShippingQuoteStatus = "QUOTED";
+    }
+
     try {
       const response = await fetch("/api/cotizaciones", {
         method: "POST",
@@ -465,7 +470,7 @@ export default function NuevaCotizacionPage() {
           notes,
           shippingCarrier: carrier,
           shippingDuration: duration,
-          shippingQuoteStatus,
+          shippingQuoteStatus: finalShippingQuoteStatus,
           shippingOptions,
           items: items.map(it => ({
             productId: it.productId,
