@@ -1072,7 +1072,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
 
                   <div style={{ maxWidth: "300px" }}>
                     <label style={{ display: "block", fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "8px", fontWeight: 600 }}>
-                      Costo de Envío Final ({currency}) *
+                      Costo de Envío Final ({currency}) {shippingQuoteStatus !== "PENDING_MIAMI" && "*"}
                     </label>
                     <input
                       type="number"
@@ -1083,7 +1083,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
                       step="0.01"
                       value={shippingCost || ""}
                       onChange={(e) => setShippingCost(Math.max(0, parseFloat(e.target.value) || 0))}
-                      required
+                      required={shippingQuoteStatus !== "PENDING_MIAMI"}
                       style={{ width: "100%", padding: "12px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border-color)", color: "white", outline: "none" }}
                     />
                   </div>
