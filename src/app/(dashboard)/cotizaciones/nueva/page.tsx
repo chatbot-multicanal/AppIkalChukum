@@ -518,6 +518,10 @@ export default function NuevaCotizacionPage() {
 
       {/* Main Quote Creation Form */}
       <form onSubmit={handleSubmit} className="quote-form-layout" autoComplete="off">
+        {/* Dummy inputs to capture browser autofill and prevent it from writing into shippingCost/shippingOptions */}
+        <input type="text" name="address" style={{ display: "none" }} tabIndex={-1} />
+        <input type="text" name="zip" style={{ display: "none" }} tabIndex={-1} />
+        <input type="text" name="postal-code" style={{ display: "none" }} tabIndex={-1} />
         
         {/* Left Side: General & Products */}
         <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
