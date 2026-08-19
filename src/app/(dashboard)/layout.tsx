@@ -31,8 +31,8 @@ export default function DashboardLayout({
     setUserName(getCookie("user_name") || "Usuario");
     setUserRole(role);
 
-    // Fetch count if Admin or Bodega
-    if (role === "BODEGA" || role === "ADMIN") {
+    // Fetch count if Admin, Bodega or Vendedor
+    if (role === "BODEGA" || role === "ADMIN" || role === "VENDEDOR") {
       getPendingFreightCountAction().then((res) => {
         setPendingFreightCount(res.count);
       });
