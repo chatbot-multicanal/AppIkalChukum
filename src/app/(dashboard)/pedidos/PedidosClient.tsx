@@ -866,6 +866,49 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                       </div>
                     )}
 
+                    {/* Administrador Status Quick Override */}
+                    {canModify && (
+                      <div style={{ 
+                        marginTop: '8px', 
+                        marginBottom: '8px', 
+                        padding: '8px 10px', 
+                        background: 'rgba(255, 159, 67, 0.04)', 
+                        border: '1px solid rgba(255, 159, 67, 0.15)', 
+                        borderRadius: '8px' 
+                      }}>
+                        <label style={{ display: 'block', fontSize: '0.7rem', color: '#ff9f43', fontWeight: 700, marginBottom: '4px' }}>
+                          ⚙️ Cambiar Estado (Admin):
+                        </label>
+                        <select
+                          value={order.status}
+                          onChange={(e) => {
+                            const targetVal = e.target.value as any;
+                            // Si se cambia a PREPARING, se debe especificar una bodega (usamos la de la cotización como fallback)
+                            const whId = targetVal === "PREPARING" ? (order.warehouseId || order.quote.warehouseId || undefined) : undefined;
+                            handleUpdateStatus(order.id, targetVal, whId);
+                          }}
+                          disabled={updatingId === order.id}
+                          style={{
+                            width: '100%',
+                            background: 'var(--bg-app)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            padding: '4px 6px',
+                            color: '#ffffff',
+                            fontSize: '0.75rem',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="PENDING">⌛ Por Procesar</option>
+                          <option value="PREPARING">🔧 En Preparación</option>
+                          <option value="SHIPPED">🚚 En Camino / Enviado</option>
+                          <option value="DELIVERED">✅ Entregado</option>
+                          <option value="CANCELLED">❌ Cancelado</option>
+                        </select>
+                      </div>
+                    )}
+
                     {/* Botón de Nota de Empaque (Disponible en PREPARING, SHIPPED, DELIVERED) */}
                     {(order.status === "PREPARING" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
                       <div style={{ marginTop: '8px', marginBottom: '8px' }}>
