@@ -484,7 +484,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                           )}
 
                           {/* Botón de Editar / Agregar Costo Envío */}
-                          {(!hasOrder && quote.status !== "APPROVED" && quote.status !== "REJECTED" && (userRole !== "BODEGA" || quote.deliveryMethod === "ENVIO")) && (
+                          {(!hasOrder && (userRole !== "BODEGA" || (quote.status !== "APPROVED" && quote.status !== "REJECTED" && quote.deliveryMethod === "ENVIO"))) && (
                             <Link href={`/cotizaciones/${quote.id}/editar`} style={{ textDecoration: 'none' }}>
                               <button 
                                 className="btn-premium"
