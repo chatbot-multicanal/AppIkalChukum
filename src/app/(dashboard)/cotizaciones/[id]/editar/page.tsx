@@ -218,6 +218,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
         setNotes(quoteData.notes || "");
         setShippingCost(quoteData.shippingCost || 0);
         setDiscountType("amount");
+        setDiscountInput(quoteData.discount || 0);
         setShippingCarrier(quoteData.shippingCarrier || null);
         setShippingDuration(quoteData.shippingDuration || null);
         setShippingQuoteStatus(quoteData.shippingQuoteStatus || "NONE");
