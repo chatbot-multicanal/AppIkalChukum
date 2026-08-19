@@ -205,7 +205,7 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
 
             // 3. Totals rows
             const Amount = quote.subtotal + (quote.shippingCost > 0 ? quote.shippingCost : 0);
-            const discountPercent = Amount > 0 ? Math.round((quote.discount / Amount) * 100) : 0;
+            const discountPercent = quote.subtotal > 0 ? Math.round((quote.discount / quote.subtotal) * 100) : 0;
 
             tableRows.push({
               type: "total_amount",
