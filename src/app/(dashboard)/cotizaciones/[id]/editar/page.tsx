@@ -697,6 +697,11 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               {items.map((item, idx) => {
                 const isOverStock = item.productId && item.quantity > item.stockAvailable;
+                const selectedProd = products.find(p => p.id === item.productId);
+                const isKit = selectedProd ? selectedProd.sku.startsWith("KIT-") : false;
+                const isBidon = selectedProd ? selectedProd.sku.startsWith("BIDON-") : false;
+                const unitLabel = isKit ? "Kits" : isBidon ? "Bidones" : "Sacos";
+                const unitLabelLower = isKit ? "kits" : isBidon ? "bidones" : "sacos";
 
                 return (
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px", borderBottom: idx < items.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", paddingBottom: idx < items.length - 1 ? "16px" : "0" }}>
@@ -723,7 +728,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
                       {/* Quantity */}
                       <div style={{ flex: 1 }}>
                         <label style={{ display: "block", fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "6px" }}>
-                          Cantidad (Sacos)
+                          Cantidad ({unitLabel})
                         </label>
                         <input 
                           type="number"
@@ -776,7 +781,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
                     {item.productId && (
                       <div style={{ display: "flex", gap: "10px", fontSize: "0.8rem", paddingLeft: "4px", marginTop: "2px" }}>
                         <span style={{ color: "var(--text-secondary)" }}>
-                          Stock disponible en esta bodega: <strong>{item.stockAvailable.toFixed(1)} sacos</strong>
+                          Stock disponible en esta bodega: <strong>{item.stockAvailable.toFixed(1)} {unitLabelLower}</strong>
                         </span>
                         {isOverStock && (
                           <span style={{ color: "#ff9f43", fontWeight: 600 }}>

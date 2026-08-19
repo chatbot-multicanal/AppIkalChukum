@@ -49,6 +49,12 @@ interface Order {
     deliveryMethod: string;
     client: {
       name: string;
+      address?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zip?: string | null;
+      country?: string | null;
+      phone?: string | null;
     };
     items: QuoteItem[];
     warehouseId?: string | null;
@@ -803,6 +809,31 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                     </div>
                     
                     <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', marginBottom: '6px' }}>{order.quote.client.name}</h4>
+                    
+                    {/* Método de Entrega */}
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-teal)', marginBottom: '6px' }}>
+                      {order.quote.deliveryMethod === "ENVIO" ? "🚚 Envío a Domicilio" : "🛍️ Recolecta en Bodega"}
+                    </div>
+
+                    {/* Dirección de Entrega (Solo para ENVIO) */}
+                    {order.quote.deliveryMethod === "ENVIO" && (
+                      <div style={{ 
+                        fontSize: '0.75rem', 
+                        color: 'var(--text-secondary)', 
+                        background: 'rgba(255,255,255,0.02)', 
+                        padding: '8px 10px', 
+                        borderRadius: '6px', 
+                        border: '1px dashed rgba(255,255,255,0.08)',
+                        marginBottom: '8px',
+                        lineHeight: '1.4'
+                      }}>
+                        <strong style={{ color: '#ffffff' }}>Dirección de Entrega:</strong><br />
+                        {order.quote.client.address || "N/A"}<br />
+                        {order.quote.client.city}, {order.quote.client.state || ""} {order.quote.client.zip || ""}<br />
+                        {order.quote.client.country}<br />
+                        {order.quote.client.phone && <span style={{ display: 'inline-block', marginTop: '4px', color: 'var(--primary-sage)' }}>📞 Tel: {order.quote.client.phone}</span>}
+                      </div>
+                    )}
                     
                     <div style={{ 
                       display: 'flex', 
