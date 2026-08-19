@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { updateOrderStatusAction } from "@/app/(dashboard)/pedidos/actions";
 
 interface QuoteItem {
   id: string;
@@ -60,6 +61,40 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
     };
     setUserRole(getCookie("user_role") || "VENDEDOR");
   }, []);
+
+  const handleUpdateOrderStatus = async (orderId: string, quoteId: string, newStatus: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED") => {
+    const statusMsg = newStatus === "SHIPPED" ? "Listo para su Entrega" : "Entregado";
+    if (!confirm(`¿Seguro que deseas marcar este pedido como ${statusMsg}?`)) {
+      return;
+    }
+    
+    setIsProcessing(quoteId);
+    try {
+      const res = await updateOrderStatusAction(orderId, newStatus);
+      if (res.success) {
+        // Update status in local quotes state
+        setQuotes(prev => prev.map(q => {
+          if (q.order?.id === orderId) {
+            return {
+              ...q,
+              order: {
+                ...q.order,
+                status: newStatus
+              }
+            };
+          }
+          return q;
+        }));
+        alert(`Pedido actualizado a ${statusMsg} con éxito.`);
+      } else {
+        alert("Error al actualizar estado: " + res.error);
+      }
+    } catch (err: any) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
 
   // Approve a Quote (DRAFT -> APPROVED)
   const handleApprove = async (quoteId: string) => {
@@ -328,11 +363,76 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                       </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      {hasOrder ? (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, marginRight: '12px' }}>
-                          Pedido Creado ✓
-                        </span>
-                      ) : (
+                      {hasOrder ? (() => {
+                        const orderStatus = quote.order?.status;
+                        const orderId = quote.order?.id;
+                        
+                        if (orderStatus === "PENDING") {
+                          return (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, marginRight: '12px' }}>
+                              ⌛ Pendiente Asignar Bodega
+                            </span>
+                          );
+                        }
+                        
+                        if (orderStatus === "PREPARING") {
+                          return (
+                            <button
+                              onClick={() => orderId && handleUpdateOrderStatus(orderId, quote.id, "SHIPPED")}
+                              disabled={isProcessing === quote.id}
+                              className="btn-premium"
+                              style={{ 
+                                padding: '6px 12px', 
+                                fontSize: '0.8rem', 
+                                borderRadius: '8px', 
+                                cursor: 'pointer', 
+                                marginRight: '12px',
+                                background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
+                                color: '#ffffff',
+                                border: 'none'
+                              }}
+                            >
+                              {isProcessing === quote.id ? "Procesando..." : "Pedido listo para su entrega"}
+                            </button>
+                          );
+                        }
+                        
+                        if (orderStatus === "SHIPPED") {
+                          return (
+                            <button
+                              onClick={() => orderId && handleUpdateOrderStatus(orderId, quote.id, "DELIVERED")}
+                              disabled={isProcessing === quote.id}
+                              className="btn-premium"
+                              style={{ 
+                                padding: '6px 12px', 
+                                fontSize: '0.8rem', 
+                                borderRadius: '8px', 
+                                cursor: 'pointer', 
+                                marginRight: '12px',
+                                background: 'linear-gradient(135deg, var(--primary-sage) 0%, #7d966a 100%)',
+                                color: '#ffffff',
+                                border: 'none'
+                              }}
+                            >
+                              {isProcessing === quote.id ? "Procesando..." : "Producto entregado"}
+                            </button>
+                          );
+                        }
+                        
+                        if (orderStatus === "DELIVERED") {
+                          return (
+                            <span style={{ color: 'var(--primary-sage)', fontSize: '0.85rem', fontWeight: 700, marginRight: '12px' }}>
+                              ✅ Entregado
+                            </span>
+                          );
+                        }
+                        
+                        return (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, marginRight: '12px' }}>
+                            Pedido Creado ✓
+                          </span>
+                        );
+                      })() : (
                         <>
                           {/* Crear Pedido si la cotización está aprobada */}
                           {quote.status === "APPROVED" && (
@@ -382,24 +482,26 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                             </>
                           )}
 
-                          {/* Botón de Editar para cualquier rol si no hay pedido */}
-                          <Link href={`/cotizaciones/${quote.id}/editar`} style={{ textDecoration: 'none' }}>
-                            <button 
-                              className="btn-premium"
-                              style={{ 
-                                padding: '6px 12px', 
-                                fontSize: '0.8rem', 
-                                borderRadius: '8px', 
-                                cursor: 'pointer',
-                                marginRight: '12px',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                color: '#ffffff',
-                                border: '1px solid rgba(255, 255, 255, 0.15)'
-                              }}
-                            >
-                              {userRole === "BODEGA" ? "Agregar Costo Envío" : "Editar"}
-                            </button>
-                          </Link>
+                          {/* Botón de Editar / Agregar Costo Envío */}
+                          {(!hasOrder && quote.status !== "APPROVED" && quote.status !== "REJECTED" && (userRole !== "BODEGA" || quote.deliveryMethod === "ENVIO")) && (
+                            <Link href={`/cotizaciones/${quote.id}/editar`} style={{ textDecoration: 'none' }}>
+                              <button 
+                                className="btn-premium"
+                                style={{ 
+                                  padding: '6px 12px', 
+                                  fontSize: '0.8rem', 
+                                  borderRadius: '8px', 
+                                  cursor: 'pointer',
+                                  marginRight: '12px',
+                                  background: 'rgba(255, 255, 255, 0.05)',
+                                  color: '#ffffff',
+                                  border: '1px solid rgba(255, 255, 255, 0.15)'
+                                }}
+                              >
+                                {userRole === "BODEGA" ? "Agregar Costo Envío" : "Editar"}
+                              </button>
+                            </Link>
+                          )}
                         </>
                       )}
                       
