@@ -440,15 +440,14 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
   let total = 0;
 
   if (isMiami) {
-    // Miami/USD logic: Shipping is part of subtotal, no tax (IVA = 0)
-    const amountBeforeDiscount = subtotal + finalShippingCost;
+    // Miami/USD logic: Discount applies only to products subtotal, no tax (IVA = 0)
     if (discountType === "percent") {
-      calculatedDiscount = amountBeforeDiscount * (discountInput / 100);
+      calculatedDiscount = subtotal * (discountInput / 100);
     } else {
       calculatedDiscount = discountInput;
     }
     tax = 0;
-    total = Math.max(0, amountBeforeDiscount - calculatedDiscount);
+    total = Math.max(0, (subtotal - calculatedDiscount) + finalShippingCost);
   } else {
     // Mexico/MXN logic: Discount on products, then add shipping, then 16% IVA
     if (discountType === "percent") {
@@ -553,7 +552,7 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Main Form */}
-      <form onSubmit={handleSubmit} className="quote-form-layout">
+      <form onSubmit={handleSubmit} className="quote-form-layout" autoComplete="off">
         
         {/* Left Side: General & Products */}
         <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
@@ -928,6 +927,9 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
                               Opciones de Envío / Tarifas de Bodega
                             </label>
                             <textarea
+                              name="shippingOptions"
+                              id="shippingOptions"
+                              autoComplete="new-shipping-options"
                               value={shippingOptions}
                               onChange={(e) => setShippingOptions(e.target.value)}
                               placeholder="Aquí la oficina de Miami escribirá las opciones de envío (ej. UPS: $85 | LTL: $240) para elegir la mejor."
@@ -1065,6 +1067,9 @@ export default function EditarCotizacionPage({ params }: { params: Promise<{ id:
                     </label>
                     <input
                       type="number"
+                      name="shippingCost"
+                      id="shippingCost"
+                      autoComplete="new-shipping-cost"
                       min="0"
                       step="0.01"
                       value={shippingCost || ""}
