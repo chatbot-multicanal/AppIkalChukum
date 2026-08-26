@@ -51,7 +51,7 @@ body::before {
   background-image: url("/bg-chukum.jpg");
   background-size: cover;
   background-position: center;
-  filter: blur(40px) brightness(0.28) contrast(1.1);
+  filter: blur(15px) brightness(0.25) contrast(1.05);
   z-index: -1;
   pointer-events: none;
 }
