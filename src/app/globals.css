@@ -624,12 +624,13 @@ select option {
 }
 
 /* Top navigation tab cards styling */
-.top-nav-3d-button {
+.top-nav-3d-card-wrapper {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.top-nav-3d-button:hover {
+.top-nav-3d-button:hover .top-nav-3d-card-wrapper {
   transform: translateY(-3px);
+  border-color: var(--border-color-hover) !important;
   box-shadow: var(--shadow-glow) !important;
 }
 

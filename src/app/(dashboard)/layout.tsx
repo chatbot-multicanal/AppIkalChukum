@@ -408,83 +408,84 @@ export default function DashboardLayout({
               const isActive = pathname === item.path;
               const itemSegment = getSegmentConfig(item.path);
               const imageSrc = TAB_IMAGES[item.name] || "/tab-dashboard.png";
-              
-              const tabStyle = {
-                position: 'relative' as const,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                aspectRatio: '16/10.2',
-                borderRadius: '16px',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                textDecoration: 'none',
-              };
-
-              return (
+                return (
                 <Link 
                   key={item.path} 
                   href={item.path}
-                  style={tabStyle}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column' as const,
+                    alignItems: 'center',
+                    gap: '6px',
+                    textDecoration: 'none',
+                    width: '100%',
+                    cursor: 'pointer',
+                  }}
                   className="top-nav-3d-button"
                 >
-                  {/* Background 3D glass button image */}
-                  <img 
-                    src={imageSrc} 
-                    alt={item.name}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      filter: isActive ? 'none' : 'grayscale(45%) opacity(55%) brightness(0.85)',
-                      transition: 'all 0.3s ease',
-                    }}
-                    className="top-nav-3d-img"
-                  />
+                  {/* The visual Card Image Wrapper */}
+                  <div style={{
+                    position: 'relative',
+                    width: '100%',
+                    aspectRatio: '16/9.5',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    background: '#191D21',
+                    border: `1px solid ${isActive ? `${itemSegment.color}80` : 'rgba(255, 255, 255, 0.05)'}`,
+                    boxShadow: isActive ? `0 0 20px ${itemSegment.color}33` : 'none',
+                  }} className="top-nav-3d-card-wrapper">
+                    {/* Background 3D glass button image */}
+                    <img 
+                      src={imageSrc} 
+                      alt={item.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        filter: isActive ? 'none' : 'grayscale(45%) opacity(55%) brightness(0.85)',
+                        transition: 'all 0.3s ease',
+                      }}
+                      className="top-nav-3d-img"
+                    />
+                    
+                    {/* Cotizaciones notification badge overlay */}
+                    {item.name === "Cotizaciones" && pendingFreightCount > 0 && (
+                      <span style={{ 
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        background: '#ff9f43', 
+                        color: '#ffffff', 
+                        fontSize: '0.7rem', 
+                        fontWeight: 800, 
+                        padding: '2px 6px', 
+                        borderRadius: '10px', 
+                        lineHeight: '1',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(255, 159, 67, 0.4)'
+                      }}>
+                        {pendingFreightCount}
+                      </span>
+                    )}
+                  </div>
                   
-                  {/* Text label overlay */}
+                  {/* Text label rendered EXTERNALLY below the card */}
                   <span style={{
-                    position: 'absolute',
-                    bottom: '6px',
-                    left: '4px',
-                    right: '4px',
-                    textAlign: 'center',
-                    fontSize: '0.70rem',
+                    fontSize: '0.75rem',
                     fontWeight: isActive ? 800 : 600,
-                    color: isActive ? '#ffffff' : 'rgba(255,255,255,0.7)',
-                    textShadow: '0 2px 4px rgba(0,0,0,0.85)',
-                    letterSpacing: '0.2px',
-                    whiteSpace: 'nowrap',
+                    color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.65)',
+                    textAlign: 'center',
+                    width: '100%',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    transition: 'all 0.3s ease'
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease',
+                    marginTop: '2px'
                   }}>
                     {item.name}
                   </span>
-                  
-                  {/* Cotizaciones notification badge overlay */}
-                  {item.name === "Cotizaciones" && pendingFreightCount > 0 && (
-                    <span style={{ 
-                      position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      background: '#ff9f43', 
-                      color: '#ffffff', 
-                      fontSize: '0.7rem', 
-                      fontWeight: 800, 
-                      padding: '2px 6px', 
-                      borderRadius: '10px', 
-                      lineHeight: '1',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 2px 8px rgba(255, 159, 67, 0.4)'
-                    }}>
-                      {pendingFreightCount}
-                    </span>
-                  )}
                 </Link>
               );
             })}
