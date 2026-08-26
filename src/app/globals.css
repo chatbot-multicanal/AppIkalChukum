@@ -38,9 +38,22 @@ body {
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(20, 184, 166, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.06) 0px, transparent 50%);
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  top: -50px;
+  left: -50px;
+  right: -50px;
+  bottom: -50px;
+  background-image: url("/bg-chukum.jpg");
+  background-size: cover;
+  background-position: center;
+  filter: blur(40px) brightness(0.28) contrast(1.1);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Layout System */
@@ -53,7 +66,9 @@ body {
 /* Premium Sidebar */
 .sidebar {
   width: 280px;
-  background-color: var(--bg-sidebar);
+  background-color: rgba(9, 13, 22, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border-right: 1px solid var(--border-color);
   padding: 32px 24px;
   display: flex;
