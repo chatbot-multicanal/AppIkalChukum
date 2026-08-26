@@ -71,7 +71,8 @@ export async function getActiveWarehousesAction() {
 export async function updateOrderStatusAction(
   orderId: string,
   newStatus: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED",
-  warehouseId?: string
+  warehouseId?: string,
+  scheduledDeliveryAt?: string
 ) {
   try {
     // Validar autorización a nivel backend (Solo ADMIN, GERENTE o BODEGA (para PREPARING/SHIPPED) pueden cambiar estados)
@@ -236,6 +237,8 @@ export async function updateOrderStatusAction(
           data: {
             status: newStatus,
             warehouseId: warehouseId,
+            acknowledgedAt: new Date(),
+            acknowledgedById: userId || null
           },
         });
       }
@@ -432,9 +435,13 @@ export async function updateOrderStatusAction(
       
       // Para cualquier otro cambio de estatus estándar (ej. SHIPPED)
       else {
+        const updateData: any = { status: newStatus };
+        if (scheduledDeliveryAt) {
+          updateData.scheduledDeliveryAt = new Date(scheduledDeliveryAt);
+        }
         await tx.order.update({
           where: { id: orderId },
-          data: { status: newStatus },
+          data: updateData,
         });
       }
 

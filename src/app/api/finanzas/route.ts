@@ -161,6 +161,89 @@ export async function GET(request: Request) {
       orderBy: { name: "asc" }
     });
 
+    // Calcular valor de inventario de producto en bodega (kits de componentes)
+    let inventoryWhere: any = {};
+    if (warehouseQuery !== "ALL") {
+      if (warehouseQuery === "GLOBAL" || warehouseQuery === "NONE") {
+        inventoryWhere.warehouseId = "NONE";
+      } else {
+        inventoryWhere.warehouseId = warehouseQuery;
+      }
+    }
+
+    const inventoryItems = await db.inventory.findMany({
+      where: inventoryWhere,
+      include: {
+        product: {
+          select: {
+            sku: true,
+            name: true,
+            basePrice: true
+          }
+        },
+        warehouse: {
+          select: {
+            name: true,
+            country: true
+          }
+        }
+      }
+    });
+
+    const itemsByWarehouse: Record<string, typeof inventoryItems> = {};
+    inventoryItems.forEach(item => {
+      if (!itemsByWarehouse[item.warehouseId]) {
+        itemsByWarehouse[item.warehouseId] = [];
+      }
+      itemsByWarehouse[item.warehouseId].push(item);
+    });
+
+    let totalInventoryUSD = 0;
+    let totalInventoryMXN = 0;
+
+    for (const [whId, items] of Object.entries(itemsByWarehouse)) {
+      const firstItem = items[0];
+      const isMiami = firstItem.warehouse?.country === "Estados Unidos" || firstItem.warehouse?.name.toLowerCase().includes("miami");
+
+      let resinStock = 0;
+      const sacosByColor: Record<string, number> = {};
+
+      items.forEach(inv => {
+        const sku = inv.product.sku;
+        if (sku === "BIDON-RES-001") {
+          resinStock = inv.quantity;
+        } else if (sku.startsWith("SACO-")) {
+          const color = sku.replace("SACO-", "");
+          sacosByColor[color] = (sacosByColor[color] || 0) + inv.quantity;
+        }
+      });
+
+      let totalKitsBySacos = 0;
+      for (const [color, qty] of Object.entries(sacosByColor)) {
+        totalKitsBySacos += Math.floor(qty / 3);
+      }
+
+      const buildableKits = Math.min(totalKitsBySacos, resinStock);
+
+      if (isMiami) {
+        const valUSD = buildableKits * 300;
+        totalInventoryUSD += valUSD;
+        totalInventoryMXN += valUSD * 20.0;
+      } else {
+        const valMXN = buildableKits * 1300;
+        totalInventoryMXN += valMXN;
+        totalInventoryUSD += valMXN / 20.0;
+      }
+    }
+
+    // Calcular ingresos de ventas agrupados por mes
+    const salesIncomeByMonth: Record<string, number> = {};
+    approvedQuotes.forEach((quote) => {
+      const date = new Date(quote.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      salesIncomeByMonth[key] = (salesIncomeByMonth[key] || 0) + (quote.total * quote.exchangeRate);
+    });
+
     return NextResponse.json({
       success: true,
       summary: {
@@ -169,6 +252,11 @@ export async function GET(request: Request) {
         manualIncome,
         totalExpenses,
         netProfit
+      },
+      salesIncomeByMonth,
+      inventoryValue: {
+        usd: totalInventoryUSD,
+        mxn: totalInventoryMXN
       },
       chartData,
       categoryBreakdown,
@@ -202,7 +290,7 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json();
-    let { type, category, amount, currency, exchangeRate, description, date, warehouseId } = data;
+    let { type, category, amount, currency, exchangeRate, description, date, warehouseId, status } = data;
 
     // Validación y formateo de datos según el rol
     if (userRole === "BODEGA") {
@@ -245,6 +333,7 @@ export async function POST(request: Request) {
         exchangeRate: rate,
         description: description?.trim() || null,
         date: date ? new Date(date) : new Date(),
+        status: status || "PAGADO",
         warehouseId: warehouseId || null,
         userId
       }
@@ -265,6 +354,67 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error("Error en POST /api/finanzas:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// PUT /api/finanzas - Actualizar un registro financiero manual (ej. estatus de pago o edición completa)
+export async function PUT(request: Request) {
+  try {
+    const cookieStore = await cookies();
+    const userRole = cookieStore.get("user_role")?.value;
+    const userId = cookieStore.get("user_session")?.value;
+
+    if (userRole !== "ADMIN") {
+      return NextResponse.json({ error: "No autorizado. Solo administradores pueden modificar registros financieros." }, { status: 403 });
+    }
+
+    const data = await request.json();
+    const { id, type, category, amount, currency, exchangeRate, description, date, status, warehouseId } = data;
+
+    if (!id) {
+      return NextResponse.json({ error: "El ID del registro es requerido." }, { status: 400 });
+    }
+
+    const updateData: any = {};
+    if (type !== undefined) updateData.type = type;
+    if (category !== undefined) updateData.category = category;
+    if (amount !== undefined) {
+      const recordAmount = parseFloat(amount);
+      if (isNaN(recordAmount) || recordAmount <= 0) {
+        return NextResponse.json({ error: "El monto debe ser un número positivo." }, { status: 400 });
+      }
+      updateData.amount = recordAmount;
+    }
+    if (currency !== undefined) updateData.currency = currency;
+    if (exchangeRate !== undefined) {
+      const rate = parseFloat(exchangeRate);
+      updateData.exchangeRate = isNaN(rate) ? 1.0 : rate;
+    }
+    if (description !== undefined) updateData.description = description?.trim() || null;
+    if (date !== undefined) updateData.date = new Date(date);
+    if (status !== undefined) updateData.status = status;
+    if (warehouseId !== undefined) updateData.warehouseId = warehouseId || null;
+
+    const record = await db.financeRecord.update({
+      where: { id },
+      data: updateData
+    });
+
+    // Registrar en auditoría
+    await db.auditLog.create({
+      data: {
+        entity: "FinanceRecord",
+        entityId: id,
+        action: "UPDATE",
+        userId: userId || "",
+        details: JSON.stringify(updateData)
+      }
+    });
+
+    return NextResponse.json({ success: true, record });
+  } catch (error: any) {
+    console.error("Error en PUT /api/finanzas:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

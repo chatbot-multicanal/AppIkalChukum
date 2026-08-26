@@ -13,7 +13,9 @@ export default async function CotizacionesPage() {
       order: {
         select: {
           id: true,
-          status: true
+          status: true,
+          warehouseId: true,
+          scheduledDeliveryAt: true
         }
       }
     },

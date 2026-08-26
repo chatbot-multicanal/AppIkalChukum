@@ -11,7 +11,9 @@ interface FinanceRecord {
   exchangeRate: number;
   description: string | null;
   date: string;
+  status: string; // "PENDIENTE" o "PAGADO"
   createdAt: string;
+  warehouseId?: string | null;
   warehouse?: { name: string } | null;
   user?: { name: string } | null;
 }
@@ -64,6 +66,9 @@ export default function FinanzasPage() {
     totalExpenses: 0,
     netProfit: 0
   });
+  const [inventoryValue, setInventoryValue] = useState<{ usd: number; mxn: number }>({ usd: 0, mxn: 0 });
+  const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
+  const [salesIncomeByMonth, setSalesIncomeByMonth] = useState<Record<string, number>>({});
   const [chartData, setChartData] = useState<ChartMonth[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [records, setRecords] = useState<FinanceRecord[]>([]);
@@ -77,9 +82,12 @@ export default function FinanzasPage() {
   // Filtros de tabla
   const [filterType, setFilterType] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
+  const [filterStartDate, setFilterStartDate] = useState<string>("");// YYYY-MM-DD
+  const [filterEndDate, setFilterEndDate] = useState<string>("");// YYYY-MM-DD
 
-  // Modal para agregar registro
+  // Modal para agregar/editar registro
   const [showModal, setShowModal] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     type: "EXPENSE",
     category: "RENTA",
@@ -88,10 +96,12 @@ export default function FinanzasPage() {
     exchangeRate: "1.0",
     description: "",
     date: new Date().toISOString().split("T")[0],
+    status: "PAGADO",
     warehouseId: ""
   });
 
   const openModal = () => {
+    setEditingRecordId(null);
     setFormData({
       type: "EXPENSE",
       category: "RENTA",
@@ -100,7 +110,24 @@ export default function FinanzasPage() {
       exchangeRate: "1.0",
       description: "",
       date: new Date().toISOString().split("T")[0],
-      warehouseId: (selectedWarehouse !== "ALL" && selectedWarehouse !== "GLOBAL") ? selectedWarehouse : ""
+      status: "PAGADO",
+      warehouseId: selectedWarehouse === "ALL" || selectedWarehouse === "GLOBAL" ? "" : selectedWarehouse
+    });
+    setShowModal(true);
+  };
+
+  const handleEditClick = (rec: FinanceRecord) => {
+    setEditingRecordId(rec.id);
+    setFormData({
+      type: rec.type,
+      category: rec.category,
+      amount: String(rec.amount),
+      currency: rec.currency,
+      exchangeRate: String(rec.exchangeRate),
+      description: rec.description || "",
+      date: new Date(rec.date).toISOString().split("T")[0],
+      status: rec.status,
+      warehouseId: rec.warehouseId || ""
     });
     setShowModal(true);
   };
@@ -118,6 +145,11 @@ export default function FinanzasPage() {
         setChartData(data.chartData);
         setCategoryBreakdown(data.categoryBreakdown);
         setRecords(data.records);
+        setSalesIncomeByMonth(data.salesIncomeByMonth || {});
+        setSelectedMonth("ALL");
+        if (data.inventoryValue) {
+          setInventoryValue(data.inventoryValue);
+        }
         if (data.warehouses) {
           setWarehouses(data.warehouses);
         }
@@ -133,6 +165,82 @@ export default function FinanzasPage() {
   useEffect(() => {
     loadData(selectedWarehouse);
   }, [selectedWarehouse]);
+
+  // Obtener meses disponibles de la gráfica
+  const availableMonths = chartData.map(m => ({
+    key: m.monthKey,
+    label: m.monthLabel
+  })).reverse(); // Mostrar los más recientes primero
+
+  // Calcular métricas filtradas según el mes seleccionado
+  const getFilteredData = () => {
+    if (selectedMonth === "ALL") {
+      return {
+        totalIncome: summary.totalIncome,
+        salesIncome: summary.salesIncome,
+        manualIncome: summary.manualIncome,
+        totalExpenses: summary.totalExpenses,
+        netProfit: summary.netProfit,
+        records: records,
+        categoryBreakdown: categoryBreakdown
+      };
+    }
+
+    // Filtrar registros manuales del mes
+    const filteredRecords = records.filter(r => {
+      const rMonth = r.date.slice(0, 7); // "YYYY-MM"
+      return rMonth === selectedMonth;
+    });
+
+    // Ventas automáticas del mes
+    const selSalesIncome = salesIncomeByMonth[selectedMonth] || 0;
+
+    // Ingresos y egresos manuales del mes
+    let selManualIncome = 0;
+    let selTotalExpenses = 0;
+
+    filteredRecords.forEach(r => {
+      const converted = r.amount * r.exchangeRate;
+      if (r.type === "INCOME") {
+        selManualIncome += converted;
+      } else if (r.type === "EXPENSE") {
+        selTotalExpenses += converted;
+      }
+    });
+
+    const selTotalIncome = selSalesIncome + selManualIncome;
+    const selNetProfit = selTotalIncome - selTotalExpenses;
+
+    // Desglose de gastos por categoría del mes
+    const categoryMap: Record<string, number> = {};
+    filteredRecords.forEach(r => {
+      if (r.type === "EXPENSE") {
+        const converted = r.amount * r.exchangeRate;
+        categoryMap[r.category] = (categoryMap[r.category] || 0) + converted;
+      }
+    });
+
+    const selCategoryBreakdown = Object.entries(categoryMap).map(([category, value]) => ({
+      category,
+      value
+    }));
+
+    return {
+      totalIncome: selTotalIncome,
+      salesIncome: selSalesIncome,
+      manualIncome: selManualIncome,
+      totalExpenses: selTotalExpenses,
+      netProfit: selNetProfit,
+      records: filteredRecords,
+      categoryBreakdown: selCategoryBreakdown
+    };
+  };
+
+  const currentData = getFilteredData();
+
+  const formatMXN = (val: number) => {
+    return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(val);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -155,16 +263,18 @@ export default function FinanzasPage() {
 
     setIsSubmitting(true);
     try {
+      const isEditing = editingRecordId !== null;
       const response = await fetch("/api/finanzas", {
-        method: "POST",
+        method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(isEditing ? { id: editingRecordId, ...formData } : formData)
       });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "Error al guardar el movimiento financiero.");
       }
       setShowModal(false);
+      setEditingRecordId(null);
       // Reset form
       setFormData({
         type: "EXPENSE",
@@ -174,6 +284,7 @@ export default function FinanzasPage() {
         exchangeRate: "1.0",
         description: "",
         date: new Date().toISOString().split("T")[0],
+        status: "PAGADO",
         warehouseId: ""
       });
       loadData(selectedWarehouse);
@@ -181,6 +292,24 @@ export default function FinanzasPage() {
       alert(`Error: ${error.message}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleStatus = async (recordId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "PAGADO" ? "PENDIENTE" : "PAGADO";
+    try {
+      const response = await fetch("/api/finanzas", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: recordId, status: newStatus })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Error al actualizar el estado de pago.");
+      }
+      await loadData(selectedWarehouse);
+    } catch (error: any) {
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -203,19 +332,27 @@ export default function FinanzasPage() {
   };
 
   // Filtrar registros
-  const filteredRecords = records.filter(rec => {
+  const filteredRecords = currentData.records.filter(rec => {
     const matchesType = filterType === "ALL" || rec.type === filterType;
     const matchesCategory = filterCategory === "ALL" || rec.category === filterCategory;
-    return matchesType && matchesCategory;
+    
+    let matchesDate = true;
+    if (filterStartDate) {
+      const recDate = new Date(rec.date).toISOString().split("T")[0];
+      if (recDate < filterStartDate) matchesDate = false;
+    }
+    if (filterEndDate) {
+      const recDate = new Date(rec.date).toISOString().split("T")[0];
+      if (recDate > filterEndDate) matchesDate = false;
+    }
+
+    return matchesType && matchesCategory && matchesDate;
   });
 
   // Calcular máximos de gráfica para escalar SVG
   const maxVal = Math.max(...chartData.map(m => Math.max(m.income, m.expense)), 1000);
 
   // Formateadores de moneda
-  const formatMXN = (val: number) => {
-    return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(val);
-  };
 
   return (
     <main className="main-content animate-fade-in" style={{ padding: "30px", fontFamily: "'Outfit', sans-serif", color: "#f3f4f6" }}>
@@ -256,6 +393,30 @@ export default function FinanzasPage() {
             </select>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700 }}>MES:</span>
+            <select 
+              value={selectedMonth} 
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              style={{ 
+                background: "rgba(255,255,255,0.06)", 
+                color: "white", 
+                border: "1px solid var(--border-color)", 
+                padding: "10px 16px", 
+                borderRadius: "10px", 
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                outline: "none",
+                cursor: "pointer"
+              }}
+            >
+              <option value="ALL">📅 Todo el histórico</option>
+              {availableMonths.map(m => (
+                <option key={m.key} value={m.key}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+
           <button 
             onClick={openModal} 
             className="btn-premium btn-primary-teal"
@@ -283,11 +444,11 @@ export default function FinanzasPage() {
                 <span style={{ fontSize: "1.5rem" }}>💰</span>
               </div>
               <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: "#10b981", margin: 0 }}>
-                {formatMXN(summary.totalIncome)}
+                {formatMXN(currentData.totalIncome)}
               </h2>
               <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
-                <span>Ventas ERP: {formatMXN(summary.salesIncome)}</span>
-                <span>Otros: {formatMXN(summary.manualIncome)}</span>
+                <span>Ventas ERP: {formatMXN(currentData.salesIncome)}</span>
+                <span>Otros: {formatMXN(currentData.manualIncome)}</span>
               </div>
             </div>
 
@@ -298,7 +459,7 @@ export default function FinanzasPage() {
                 <span style={{ fontSize: "1.5rem" }}>💸</span>
               </div>
               <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: "#f43f5e", margin: 0 }}>
-                {formatMXN(summary.totalExpenses)}
+                {formatMXN(currentData.totalExpenses)}
               </h2>
               <p style={{ margin: "12px 0 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
                 Incluye rentas, servicios y egresos capturados por bodegas.
@@ -306,17 +467,36 @@ export default function FinanzasPage() {
             </div>
 
             {/* Utilidad Neta */}
-            <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden", borderLeft: `4px solid ${summary.netProfit >= 0 ? "#10b981" : "#ef4444"}` }}>
+            <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden", borderLeft: `4px solid ${currentData.netProfit >= 0 ? "#10b981" : "#ef4444"}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase" }}>Utilidad Neta (MXN)</span>
                 <span style={{ fontSize: "1.5rem" }}>📈</span>
               </div>
-              <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: summary.netProfit >= 0 ? "#34d399" : "#ef4444", margin: 0 }}>
-                {formatMXN(summary.netProfit)}
+              <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: currentData.netProfit >= 0 ? "#34d399" : "#ef4444", margin: 0 }}>
+                {formatMXN(currentData.netProfit)}
               </h2>
               <p style={{ margin: "12px 0 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
                 Rendimiento financiero neto del ejercicio actual.
               </p>
+            </div>
+
+            {/* Valor de Inventario */}
+            <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden", borderLeft: "4px solid #3b82f6" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase" }}>Valor del Producto en Bodega</span>
+                <span style={{ fontSize: "1.5rem" }}>📦</span>
+              </div>
+              <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: "#3b82f6", margin: 0 }}>
+                {selectedWarehouse !== "ALL" && (selectedWarehouse === "cmqprgvrr000a8olisiw4wkhq" || warehouses.find(w => w.id === selectedWarehouse)?.name.toLowerCase().includes("miami")) ? (
+                  `$${inventoryValue.usd.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD`
+                ) : (
+                  formatMXN(inventoryValue.mxn)
+                )}
+              </h2>
+              <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
+                <span>En USD: ${inventoryValue.usd.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                <span>En MXN: {formatMXN(inventoryValue.mxn)}</span>
+              </div>
             </div>
 
           </div>
@@ -409,8 +589,8 @@ export default function FinanzasPage() {
               </h3>
               
               <div style={{ display: "flex", flexDirection: "column", gap: "18px", flex: 1, justifyContent: "center" }}>
-                {categoryBreakdown.map((item) => {
-                  const percentage = summary.totalExpenses > 0 ? (item.value / summary.totalExpenses) * 100 : 0;
+                {currentData.categoryBreakdown.map((item) => {
+                  const percentage = currentData.totalExpenses > 0 ? (item.value / currentData.totalExpenses) * 100 : 0;
                   if (item.value === 0) return null;
 
                   return (
@@ -437,9 +617,9 @@ export default function FinanzasPage() {
                   );
                 })}
 
-                {summary.totalExpenses === 0 && (
+                {currentData.totalExpenses === 0 && (
                   <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "40px 0" }}>
-                    No hay egresos registrados en el historial.
+                    No hay egresos registrados en el historial para este periodo.
                   </div>
                 )}
               </div>
@@ -455,7 +635,7 @@ export default function FinanzasPage() {
               </h3>
 
               {/* Filtros */}
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
                 <select 
                   value={filterType} 
                   onChange={(e) => setFilterType(e.target.value)}
@@ -476,6 +656,38 @@ export default function FinanzasPage() {
                     <option key={key} value={key}>{label.slice(3)}</option>
                   ))}
                 </select>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Desde:</span>
+                  <input 
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    style={{ background: "rgba(255,255,255,0.04)", color: "white", border: "1px solid var(--border-color)", padding: "6px 12px", borderRadius: "8px", fontSize: "0.85rem", colorScheme: "dark" }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 600 }}>Hasta:</span>
+                  <input 
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    style={{ background: "rgba(255,255,255,0.04)", color: "white", border: "1px solid var(--border-color)", padding: "6px 12px", borderRadius: "8px", fontSize: "0.85rem", colorScheme: "dark" }}
+                  />
+                </div>
+
+                {(filterStartDate || filterEndDate) && (
+                  <button
+                    onClick={() => {
+                      setFilterStartDate("");
+                      setFilterEndDate("");
+                    }}
+                    style={{ background: "rgba(239, 68, 68, 0.12)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.2)", padding: "6px 12px", borderRadius: "8px", fontSize: "0.85rem", cursor: "pointer", fontWeight: 600 }}
+                  >
+                    Limpiar Fechas
+                  </button>
+                )}
               </div>
             </div>
 
@@ -494,6 +706,7 @@ export default function FinanzasPage() {
                     <th>Monto Capturado</th>
                     <th>Monto en MXN</th>
                     <th>Usuario</th>
+                    <th>Estado</th>
                     <th style={{ textAlign: "right" }}>Acción</th>
                   </tr>
                 </thead>
@@ -545,7 +758,47 @@ export default function FinanzasPage() {
                         <td style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
                           {rec.user?.name || "Desconocido"}
                         </td>
+                        <td>
+                          <button
+                            onClick={() => handleToggleStatus(rec.id, rec.status)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              outline: "none"
+                            }}
+                            title="Haz clic para cambiar estado"
+                          >
+                            <span style={{ 
+                              padding: "4px 8px", 
+                              borderRadius: "6px", 
+                              fontSize: "0.75rem", 
+                              fontWeight: 700, 
+                              backgroundColor: rec.status === "PAGADO" ? "rgba(16, 185, 129, 0.12)" : "rgba(255, 159, 67, 0.12)",
+                              color: rec.status === "PAGADO" ? "#10b981" : "#ff9f43",
+                              display: "inline-block",
+                              border: rec.status === "PAGADO" ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(255, 159, 67, 0.3)"
+                            }}>
+                              {rec.status === "PAGADO" ? "✓ Pagado" : "⏳ Pendiente"}
+                            </span>
+                          </button>
+                        </td>
                         <td style={{ textAlign: "right" }}>
+                          <button 
+                            onClick={() => handleEditClick(rec)}
+                            style={{ 
+                              background: "none", 
+                              border: "none", 
+                              color: "#ff9f43", 
+                              cursor: "pointer", 
+                              fontSize: "1.1rem",
+                              marginRight: "10px"
+                            }}
+                            title="Editar registro"
+                          >
+                            ✏️
+                          </button>
                           <button 
                             onClick={() => handleDeleteRecord(rec.id)}
                             style={{ 
@@ -587,7 +840,7 @@ export default function FinanzasPage() {
         }}>
           <div className="glass-card animate-scale-in" style={{ width: "90%", maxWidth: "520px", padding: "30px", position: "relative" }}>
             <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "white", marginBottom: "20px", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px" }}>
-              Registrar Movimiento Financiero
+              {editingRecordId ? "Editar Movimiento Financiero" : "Registrar Movimiento Financiero"}
             </h3>
             
             <form onSubmit={handleFormSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -698,6 +951,19 @@ export default function FinanzasPage() {
               </div>
 
               <div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>ESTADO DE PAGO</label>
+                <select 
+                  name="status" 
+                  value={formData.status} 
+                  onChange={handleInputChange}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-color)", padding: "10px", borderRadius: "10px", color: "white" }}
+                >
+                  <option value="PAGADO">✓ Pagado</option>
+                  <option value="PENDIENTE">⏳ Pendiente</option>
+                </select>
+              </div>
+
+              <div>
                 <label style={{ display: "block", fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700, marginBottom: "6px" }}>DESCRIPCIÓN / COMENTARIO</label>
                 <textarea 
                   name="description"
@@ -723,7 +989,7 @@ export default function FinanzasPage() {
                   className="btn-premium btn-primary-teal"
                   style={{ padding: "10px 24px", borderRadius: "10px", fontWeight: 700 }}
                 >
-                  {isSubmitting ? "Registrando..." : "Guardar Movimiento"}
+                  {isSubmitting ? "Registrando..." : editingRecordId ? "Actualizar Movimiento" : "Guardar Movimiento"}
                 </button>
               </div>
 

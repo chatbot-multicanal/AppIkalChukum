@@ -78,6 +78,10 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
   const [selectingWarehouseForId, setSelectingWarehouseForId] = useState<string | null>(null);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
 
+  // States for delivery date/time inputs (tracked per order ID)
+  const [deliveryDates, setDeliveryDates] = useState<Record<string, string>>({});
+  const [deliveryTimes, setDeliveryTimes] = useState<Record<string, string>>({});
+
   // States for Shippo Label Generation Modal
   const [shippoRatesOrderId, setShippoRatesOrderId] = useState<string | null>(null);
   const [shippingRates, setShippingRates] = useState<any[]>([]);
@@ -234,7 +238,8 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
   const handleUpdateStatus = async (
     orderId: string,
     newStatus: "PENDING" | "PREPARING" | "SHIPPED" | "DELIVERED" | "CANCELLED",
-    warehouseId?: string
+    warehouseId?: string,
+    scheduledDeliveryAt?: string
   ) => {
     const isBodegaAllowed = userRole === "BODEGA" && (newStatus === "PREPARING" || newStatus === "SHIPPED");
     if (!canModify && !isBodegaAllowed) {
@@ -243,7 +248,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     }
 
     setUpdatingId(orderId);
-    const res = await updateOrderStatusAction(orderId, newStatus, warehouseId);
+    const res = await updateOrderStatusAction(orderId, newStatus, warehouseId, scheduledDeliveryAt);
     if (res.success) {
       setSelectingWarehouseForId(null);
       await loadData();
@@ -402,7 +407,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                       cursor: 'pointer'
                     }}
                   >
-                    Iniciar Surtido
+                    Pedido recibido
                   </button>
                 </div>
               )}
@@ -418,7 +423,64 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
       orders: preparingOrders,
       actionButton: (order: Order) => {
         const isBodega = userRole === "BODEGA";
-        
+        const dateValue = deliveryDates[order.id] || "";
+        const timeValue = deliveryTimes[order.id] || "";
+
+        const renderFulfillmentInputs = () => (
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '8px', 
+            background: 'rgba(255,255,255,0.02)', 
+            padding: '10px', 
+            borderRadius: '10px', 
+            border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: '8px' 
+          }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+              📅 Programar Disponibilidad de Entrega:
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '3px' }}>FECHA</label>
+                <input
+                  type="date"
+                  value={dateValue}
+                  onChange={(e) => setDeliveryDates(prev => ({ ...prev, [order.id]: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '5px 8px',
+                    color: '#ffffff',
+                    fontSize: '0.8rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '3px' }}>HORA</label>
+                <input
+                  type="time"
+                  value={timeValue}
+                  onChange={(e) => setDeliveryTimes(prev => ({ ...prev, [order.id]: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '5px 8px',
+                    color: '#ffffff',
+                    fontSize: '0.8rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        );
+
         if (isBodega) {
           if (!order.acknowledgedAt) {
             return (
@@ -470,23 +532,32 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                     📦 Generar Guía Shippo
                   </button>
                 ) : (
-                  <button
-                    onClick={() => handleUpdateStatus(order.id, "SHIPPED")}
-                    disabled={updatingId === order.id}
-                    style={{
-                      flex: 1,
-                      background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      color: '#ffffff',
-                      padding: '8px 12px',
-                      fontSize: '0.8rem',
-                      fontWeight: 700,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Dar Salida (Despachar)
-                  </button>
+                  <>
+                    {renderFulfillmentInputs()}
+                    <button
+                      onClick={() => {
+                        if (!dateValue || !timeValue) {
+                          alert("Por favor especifica la fecha y hora disponible para la entrega.");
+                          return;
+                        }
+                        handleUpdateStatus(order.id, "SHIPPED", undefined, `${dateValue}T${timeValue}`);
+                      }}
+                      disabled={updatingId === order.id}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        padding: '8px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Listo - Entrega Programada
+                    </button>
+                  </>
                 )}
               </div>
             );
@@ -507,8 +578,9 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                   ⌛ Esperando recepción en bodega
                 </span>
               )}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {isMiamiEnvio && !order.shippingLabelUrl ? (
+              
+              {isMiamiEnvio && !order.shippingLabelUrl ? (
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => handleOpenShippoModal(order.id)}
                     disabled={updatingId === order.id}
@@ -526,42 +598,69 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                   >
                     📦 Generar Guía Shippo
                   </button>
-                ) : (
                   <button
-                    onClick={() => handleUpdateStatus(order.id, "SHIPPED")}
+                    onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
                     disabled={updatingId === order.id}
                     style={{
-                      flex: 1,
-                      background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
-                      border: 'none',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
                       borderRadius: '8px',
-                      color: '#ffffff',
+                      color: '#ef4444',
                       padding: '8px 12px',
                       fontSize: '0.8rem',
-                      fontWeight: 700,
+                      fontWeight: 600,
                       cursor: 'pointer'
                     }}
                   >
-                    Listo para Envío
+                    Cancelar
                   </button>
-                )}
-                <button
-                  onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
-                  disabled={updatingId === order.id}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.2)',
-                    borderRadius: '8px',
-                    color: '#ef4444',
-                    padding: '8px 12px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {renderFulfillmentInputs()}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => {
+                        if (!dateValue || !timeValue) {
+                          alert("Por favor especifica la fecha y hora disponible para la entrega.");
+                          return;
+                        }
+                        handleUpdateStatus(order.id, "SHIPPED", undefined, `${dateValue}T${timeValue}`);
+                      }}
+                      disabled={updatingId === order.id}
+                      style={{
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #9b59b6 0%, #7d3c98 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#ffffff',
+                        padding: '8px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Listo - Entrega Programada
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
+                      disabled={updatingId === order.id}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.2)',
+                        borderRadius: '8px',
+                        color: '#ef4444',
+                        padding: '8px 12px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )
         );
@@ -569,7 +668,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     },
     {
       id: "SHIPPED" as const,
-      title: "En Camino / Enviado",
+      title: "Listo para Entrega Programada",
       color: "#9b59b6",
       orders: shippedOrders,
       actionButton: (order: Order) => (
@@ -863,6 +962,30 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                         marginBottom: '4px'
                       }}>
                         <span>🏠 Bodega: {order.warehouse.name}</span>
+                      </div>
+                    )}
+
+                    {order.scheduledDeliveryAt && (
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px', 
+                        fontSize: '0.75rem', 
+                        color: '#ff9f43',
+                        background: 'rgba(255, 159, 67, 0.05)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 159, 67, 0.15)',
+                        width: 'fit-content',
+                        marginBottom: '4px'
+                      }}>
+                        <span>📅 Entrega Programada: {new Date(order.scheduledDeliveryAt).toLocaleString('es-MX', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}</span>
                       </div>
                     )}
 

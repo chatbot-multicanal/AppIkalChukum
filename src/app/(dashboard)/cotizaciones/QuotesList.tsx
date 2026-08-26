@@ -27,6 +27,7 @@ interface Quote {
   shippingQuoteStatus?: string;
   shippingOptions?: string | null;
   createdAt: string;
+  warehouseId?: string | null;
   client: {
     name: string;
   };
@@ -36,6 +37,8 @@ interface Quote {
   order?: {
     id: string;
     status: string;
+    warehouseId?: string | null;
+    scheduledDeliveryAt?: string | null;
   } | null;
 }
 
@@ -321,7 +324,46 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         {hasOrder ? (
-                          <span className="badge badge-approved" style={{ border: "1px solid var(--primary-teal)", alignSelf: "flex-start" }}>Con Pedido</span>
+                          <>
+                            <span className="badge badge-approved" style={{ border: "1px solid var(--primary-teal)", alignSelf: "flex-start" }}>Con Pedido</span>
+                            {quote.order && (
+                              <span className="badge" style={{
+                                backgroundColor: 
+                                  quote.order.status === "PENDING" ? "rgba(255, 159, 67, 0.08)" :
+                                  quote.order.status === "PREPARING" ? "rgba(59, 130, 246, 0.08)" :
+                                  quote.order.status === "SHIPPED" ? "rgba(155, 89, 182, 0.08)" :
+                                  "rgba(16, 185, 129, 0.08)",
+                                color: 
+                                  quote.order.status === "PENDING" ? "#ff9f43" :
+                                  quote.order.status === "PREPARING" ? "#3b82f6" :
+                                  quote.order.status === "SHIPPED" ? "#9b59b6" :
+                                  "#10b981",
+                                border: 
+                                  quote.order.status === "PENDING" ? "1px solid rgba(255, 159, 67, 0.3)" :
+                                  quote.order.status === "PREPARING" ? "1px solid rgba(59, 130, 246, 0.3)" :
+                                  quote.order.status === "SHIPPED" ? "1px solid rgba(155, 89, 182, 0.3)" :
+                                  "1px solid rgba(16, 185, 129, 0.3)",
+                                alignSelf: "flex-start",
+                                fontSize: "0.7rem",
+                                padding: "2px 5px",
+                                fontWeight: 700
+                              }}>
+                                {quote.order.status === "PENDING" ? "⏳ Por Surtir" :
+                                 quote.order.status === "PREPARING" ? "📦 En Surtido" :
+                                 quote.order.status === "SHIPPED" ? (
+                                   quote.order.scheduledDeliveryAt ? (
+                                     `🚚 Listo: ${new Date(quote.order.scheduledDeliveryAt).toLocaleDateString("es-MX", {
+                                       day: "2-digit",
+                                       month: "short",
+                                       hour: "2-digit",
+                                       minute: "2-digit"
+                                     })}`
+                                   ) : "🚚 Listo para Entrega"
+                                 ) :
+                                 "✅ Entregado"}
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className={`badge ${
                             quote.status === "APPROVED" ? "badge-approved" : 
@@ -369,9 +411,10 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                         const orderId = quote.order?.id;
                         
                         if (orderStatus === "PENDING") {
+                          const orderWarehouseId = (quote.order as any)?.warehouseId || quote.warehouseId;
                           return (
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 600, marginRight: '12px' }}>
-                              ⌛ Pendiente Asignar Bodega
+                              {orderWarehouseId ? "⌛ Pendiente Iniciar Surtido" : "⌛ Pendiente Asignar Bodega"}
                             </span>
                           );
                         }
@@ -393,7 +436,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                                 border: 'none'
                               }}
                             >
-                              {isProcessing === quote.id ? "Procesando..." : "Pedido listo para su entrega"}
+                              {isProcessing === quote.id ? "Procesando..." : "Marcar como Listo para Entrega"}
                             </button>
                           );
                         }
@@ -415,7 +458,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                                 border: 'none'
                               }}
                             >
-                              {isProcessing === quote.id ? "Procesando..." : "Producto entregado"}
+                              {isProcessing === quote.id ? "Procesando..." : "Confirmar Entrega / Recibido"}
                             </button>
                           );
                         }
