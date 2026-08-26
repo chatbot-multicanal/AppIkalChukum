@@ -624,10 +624,21 @@ select option {
 }
 
 /* Top navigation tab cards styling */
-.top-nav-tab-card:hover {
-  background: var(--bg-card-hover) !important;
-  border-color: var(--border-color-hover) !important;
+.top-nav-3d-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.top-nav-3d-button:hover {
+  transform: translateY(-3px);
   box-shadow: var(--shadow-glow) !important;
-  transform: translateY(-2px);
+}
+
+.top-nav-3d-button:hover .top-nav-3d-img {
+  filter: none !important;
+  transform: scale(1.02);
+}
+
+.top-nav-3d-button:hover span {
+  color: #ffffff !important;
 }
 

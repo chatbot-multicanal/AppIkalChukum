@@ -28,6 +28,17 @@ const getSegmentConfig = (path: string) => {
   return SEGMENTS["/"];
 };
 
+const TAB_IMAGES: Record<string, string> = {
+  "Dashboard": "/tab-dashboard.png",
+  "Clientes": "/tab-clientes.png",
+  "Cotizaciones": "/tab-cotizaciones.png",
+  "Pedidos": "/tab-pedidos.png",
+  "Inventario": "/tab-inventario.png",
+  "Comisiones": "/tab-comisiones.png",
+  "Finanzas": "/tab-finanzas.png",
+  "Respaldos": "/tab-respaldos.png"
+};
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -388,30 +399,27 @@ export default function DashboardLayout({
         }} className="top-nav-tabs-container">
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(115px, 1fr))', 
             gap: '12px',
             width: '100%' 
           }}>
             {navItems.map((item) => {
               const isActive = pathname === item.path;
               const itemSegment = getSegmentConfig(item.path);
+              const imageSrc = TAB_IMAGES[item.name] || "/tab-dashboard.png";
               
-              // Custom styles for each tab card
               const tabStyle = {
+                position: 'relative' as const,
                 display: 'flex',
-                flexDirection: 'column' as const,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
-                padding: '16px 12px',
+                width: '100%',
+                aspectRatio: '16/9.5',
                 borderRadius: '16px',
-                background: isActive ? `linear-gradient(135deg, ${itemSegment.color}1c 0%, ${itemSegment.color}05 100%)` : '#191D21',
-                border: `1px solid ${isActive ? `${itemSegment.color}80` : 'rgba(255, 255, 255, 0.05)'}`,
-                color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                boxShadow: isActive ? `0 0 20px ${itemSegment.color}33` : 'none',
-                textDecoration: 'none',
+                overflow: 'hidden',
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                textDecoration: 'none',
               };
 
               return (
@@ -419,22 +427,60 @@ export default function DashboardLayout({
                   key={item.path} 
                   href={item.path}
                   style={tabStyle}
-                  className="top-nav-tab-card"
+                  className="top-nav-3d-button"
                 >
-                  <div style={{ 
-                    color: isActive ? itemSegment.color : 'currentColor',
-                    transition: 'color 0.3s',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                  {/* Background 3D glass button image */}
+                  <img 
+                    src={imageSrc} 
+                    alt={item.name}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      filter: isActive ? 'none' : 'grayscale(45%) opacity(55%) brightness(0.85)',
+                      transition: 'all 0.3s ease',
+                    }}
+                    className="top-nav-3d-img"
+                  />
+                  
+                  {/* Text label overlay */}
+                  <span style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    left: 0,
+                    right: 0,
+                    textAlign: 'center',
+                    fontSize: '0.78rem',
+                    fontWeight: isActive ? 800 : 600,
+                    color: isActive ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.85)',
+                    letterSpacing: '0.5px',
+                    transition: 'all 0.3s ease'
                   }}>
-                    {item.icon}
-                  </div>
-                  <span style={{ 
-                    fontSize: '0.8rem', 
-                    fontWeight: isActive ? 700 : 500,
-                    textAlign: 'center'
-                  }}>{item.name}</span>
+                    {item.name}
+                  </span>
+                  
+                  {/* Cotizaciones notification badge overlay */}
+                  {item.name === "Cotizaciones" && pendingFreightCount > 0 && (
+                    <span style={{ 
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      background: '#ff9f43', 
+                      color: '#ffffff', 
+                      fontSize: '0.7rem', 
+                      fontWeight: 800, 
+                      padding: '2px 6px', 
+                      borderRadius: '10px', 
+                      lineHeight: '1',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(255, 159, 67, 0.4)'
+                    }}>
+                      {pendingFreightCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
