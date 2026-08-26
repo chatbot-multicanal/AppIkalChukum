@@ -430,9 +430,9 @@ export default function DashboardLayout({
                     aspectRatio: '16/9.5',
                     borderRadius: '16px',
                     overflow: 'hidden',
-                    background: '#191D21',
-                    border: `1px solid ${isActive ? `${itemSegment.color}80` : 'rgba(255, 255, 255, 0.05)'}`,
-                    boxShadow: isActive ? `0 0 20px ${itemSegment.color}33` : 'none',
+                    background: 'transparent',
+                    border: `1px solid ${isActive ? itemSegment.color : 'transparent'}`,
+                    boxShadow: isActive ? `0 0 20px ${itemSegment.color}44` : 'none',
                   }} className="top-nav-3d-card-wrapper">
                     {/* Background 3D glass button image */}
                     <img 
