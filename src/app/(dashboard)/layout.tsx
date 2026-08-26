@@ -415,7 +415,7 @@ export default function DashboardLayout({
                 alignItems: 'center',
                 justifyContent: 'center',
                 width: '100%',
-                aspectRatio: '16/9.5',
+                aspectRatio: '16/10.2',
                 borderRadius: '16px',
                 overflow: 'hidden',
                 cursor: 'pointer',
@@ -447,15 +447,18 @@ export default function DashboardLayout({
                   {/* Text label overlay */}
                   <span style={{
                     position: 'absolute',
-                    bottom: '8px',
-                    left: 0,
-                    right: 0,
+                    bottom: '6px',
+                    left: '4px',
+                    right: '4px',
                     textAlign: 'center',
-                    fontSize: '0.78rem',
+                    fontSize: '0.70rem',
                     fontWeight: isActive ? 800 : 600,
                     color: isActive ? '#ffffff' : 'rgba(255,255,255,0.7)',
                     textShadow: '0 2px 4px rgba(0,0,0,0.85)',
-                    letterSpacing: '0.5px',
+                    letterSpacing: '0.2px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     transition: 'all 0.3s ease'
                   }}>
                     {item.name}
