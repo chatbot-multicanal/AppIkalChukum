@@ -338,7 +338,7 @@ export default function DashboardLayout({
         {/* Branding Kit Graphic */}
         <div style={{ 
           marginTop: 'auto', 
-          padding: '12px 12px 0 12px', 
+          padding: '12px 0 0 0', 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center',
@@ -346,15 +346,13 @@ export default function DashboardLayout({
           overflow: 'hidden'
         }}>
           <img 
-            src="/kit-chukum-neon.jpg" 
+            src="/kit-chukum-neon.png" 
             alt="Ikal Chukum Premium Neon Kit" 
             style={{ 
-              width: '100%', 
-              maxHeight: '190px', 
-              objectFit: 'cover',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.6)'
+              width: '110%', 
+              maxHeight: '230px', 
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 12px 20px rgba(0,0,0,0.55))'
             }} 
           />
         </div>
