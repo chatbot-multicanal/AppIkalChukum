@@ -1,19 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --primary-teal: #14b8a6; /* Neon teal */
-  --primary-teal-rgb: 20, 184, 166;
-  --primary-sage: #38bdf8; /* Neon sky-blue */
-  --primary-sage-rgb: 56, 189, 248;
+  --primary-teal: #1D8088; /* Brand default teal */
+  --primary-sage: #A4BD91; /* Brand default sage green */
   
   /* Dark Theme Palette (Default) */
-  --bg-app: #030712; /* Deeper space black for higher contrast */
-  --bg-sidebar: #090d16;
-  --bg-card: rgba(15, 23, 42, 0.45);
-  --bg-card-hover: rgba(15, 23, 42, 0.65);
+  --bg-app: #10191B; /* Default desaturated dashboard background */
+  --bg-sidebar: #0b1113;
+  --bg-card: #191D21; /* Solid neutral dark card color */
+  --bg-card-hover: #1f242a;
   
-  --border-color: rgba(20, 184, 166, 0.08); /* Glowing neon borders */
-  --border-color-hover: rgba(20, 184, 166, 0.35);
+  --border-color: rgba(255, 255, 255, 0.05); /* Neutral border for cards */
+  --border-color-hover: rgba(29, 128, 136, 0.35);
   
   --text-main: #f3f4f6;
   --text-secondary: #9ca3af;
@@ -21,7 +19,7 @@
   
   --shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 15px rgba(20, 184, 166, 0.2);
+  --shadow-glow: 0 0 20px rgba(29, 128, 136, 0.2);
   
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -195,8 +193,7 @@ body::before {
   border-radius: 20px;
   box-shadow: 
     0 4px 30px rgba(0, 0, 0, 0.4), 
-    inset 0 1px 1px rgba(255, 255, 255, 0.05),
-    0 0 10px rgba(20, 184, 166, 0.03);
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -206,7 +203,7 @@ body::before {
   box-shadow: 
     0 15px 35px rgba(0, 0, 0, 0.5), 
     inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    0 0 20px rgba(20, 184, 166, 0.2);
+    var(--shadow-glow);
   transform: translateY(-3px);
 }
 

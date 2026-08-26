@@ -6,6 +6,28 @@ import Link from "next/link";
 import "../globals.css";
 import { getPendingFreightCountAction } from "@/app/(dashboard)/cotizaciones/actions";
 
+const SEGMENTS: Record<string, { color: string; bg: string }> = {
+  "/": { color: "#1D8088", bg: "#10191B" },          // Dashboard (Turquesa #1D8088 -> #10191B)
+  "/clientes": { color: "#A4BD91", bg: "#151A14" },    // Clientes (Verde salvia #A4BD91 -> #151A14)
+  "/cotizaciones": { color: "#D5C3A5", bg: "#1B1813" },// Cotizaciones (Arena #D5C3A5 -> #1B1813)
+  "/pedidos": { color: "#287A94", bg: "#10171B" },     // Pedidos (Azul petróleo #287A94 -> #10171B)
+  "/inventario": { color: "#5F8C74", bg: "#111915" },  // Inventario (Verde profundo #5F8C74 -> #111915)
+  "/comisiones": { color: "#C3A15E", bg: "#1B1811" },  // Comisiones (Dorado apagado #C3A15E -> #1B1811)
+  "/finanzas": { color: "#4FAF8A", bg: "#101916" },    // Finanzas (Esmeralda #4FAF8A -> #101916)
+  "/respaldos": { color: "#74828C", bg: "#141719" }    // Respaldos (Gris azulado #74828C -> #141719)
+};
+
+const getSegmentConfig = (path: string) => {
+  if (path.startsWith("/clientes")) return SEGMENTS["/clientes"];
+  if (path.startsWith("/cotizaciones")) return SEGMENTS["/cotizaciones"];
+  if (path.startsWith("/pedidos")) return SEGMENTS["/pedidos"];
+  if (path.startsWith("/inventario")) return SEGMENTS["/inventario"];
+  if (path.startsWith("/comisiones")) return SEGMENTS["/comisiones"];
+  if (path.startsWith("/finanzas")) return SEGMENTS["/finanzas"];
+  if (path.startsWith("/respaldos")) return SEGMENTS["/respaldos"];
+  return SEGMENTS["/"];
+};
+
 export default function DashboardLayout({
   children,
 }: Readonly<{
@@ -135,51 +157,56 @@ export default function DashboardLayout({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Determine background image and filter based on pathname
-  let bgGradient = "radial-gradient(at 0% 0%, rgba(20, 184, 166, 0.08) 0px, transparent 50%)"; // default teal
-  let bgImage = "url('/bg-chukum.jpg')"; // Default Chukum for Ikal Chukum
-  let blurFilter = "blur(15px) brightness(0.25) contrast(1.05)";
+  const currentSegment = getSegmentConfig(pathname);
 
-  if (pathname === "/inventario") {
-    // Sage Green blurred theme background (Stock / Materials)
-    bgGradient = "radial-gradient(at 0% 0%, rgba(164, 189, 145, 0.12) 0px, transparent 50%)";
-    blurFilter = "blur(25px) brightness(0.2) contrast(1.1)";
-  } else if (pathname === "/finanzas" || pathname === "/comisiones") {
-    // Terracotta Chukum theme (less blur so we see the texture)
-    bgGradient = "radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.1) 0px, transparent 50%)";
-    blurFilter = "blur(12px) brightness(0.24) contrast(1.08)";
-  } else if (pathname === "/respaldos") {
-    // Purple theme background (System / Admin)
-    bgGradient = "radial-gradient(at 0% 0%, rgba(167, 120, 250, 0.1) 0px, transparent 50%)";
-    blurFilter = "blur(25px) brightness(0.22) contrast(1.1)";
-  }
+  // Configure CSS custom properties dynamically on the container wrapper
+  const customStyles = {
+    position: "relative",
+    "--primary-teal": currentSegment.color,
+    "--border-color-hover": `${currentSegment.color}5a`,
+    "--shadow-glow": `0 0 20px ${currentSegment.color}44`,
+    "--bg-app": currentSegment.bg
+  } as React.CSSProperties;
 
   return (
-    <div className="layout-container" style={{ position: "relative" }}>
-      {/* Dynamic Segment Background */}
+    <div className="layout-container" style={customStyles}>
+      {/* Background Texture plane with Chukum texture */}
       <div style={{
         position: "fixed",
         top: "-50px",
         left: "-50px",
         right: "-50px",
         bottom: "-50px",
-        backgroundImage: bgImage,
+        backgroundImage: "url('/bg-chukum.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        filter: blurFilter,
+        filter: "blur(15px) contrast(1.05)",
+        opacity: 0.12, // Subtle texture showing behind the content
         zIndex: -2,
-        pointerEvents: "none",
-        transition: "all 0.8s ease" // Smooth fade transition between sections!
+        pointerEvents: "none"
       }} />
-      
-      {/* Secondary Dynamic Radial Glow */}
+
+      {/* Solid Dynamic Background Color (which transitions smoothly) */}
       <div style={{
         position: "fixed",
         top: 0,
         left: 0,
         width: "100%",
         height: "100%",
-        backgroundImage: `${bgGradient}, radial-gradient(at 100% 100%, rgba(164, 189, 145, 0.05) 0px, transparent 50%)`,
+        backgroundColor: currentSegment.bg,
+        zIndex: -3,
+        pointerEvents: "none",
+        transition: "all 0.8s ease" // Smooth fade transition between section backgrounds!
+      }} />
+      
+      {/* Dynamic Radial Glow plane */}
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundImage: `radial-gradient(at 0% 0%, ${currentSegment.color}15 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(255, 255, 255, 0.02) 0px, transparent 50%)`,
         zIndex: -2,
         pointerEvents: "none",
         transition: "all 0.8s ease"
