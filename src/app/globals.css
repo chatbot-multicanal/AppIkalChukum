@@ -42,18 +42,7 @@ body {
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  top: -50px;
-  left: -50px;
-  right: -50px;
-  bottom: -50px;
-  background-image: url("/bg-chukum.jpg");
-  background-size: cover;
-  background-position: center;
-  filter: blur(15px) brightness(0.25) contrast(1.05);
-  z-index: -1;
-  pointer-events: none;
+  display: none;
 }
 
 /* Layout System */

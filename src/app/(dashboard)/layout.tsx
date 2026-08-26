@@ -135,8 +135,55 @@ export default function DashboardLayout({
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Determine background image and filter based on pathname
+  let bgGradient = "radial-gradient(at 0% 0%, rgba(20, 184, 166, 0.08) 0px, transparent 50%)"; // default teal
+  let bgImage = "url('/bg-chukum.jpg')"; // Default Chukum for Ikal Chukum
+  let blurFilter = "blur(15px) brightness(0.25) contrast(1.05)";
+
+  if (pathname === "/inventario") {
+    // Sage Green blurred theme background (Stock / Materials)
+    bgGradient = "radial-gradient(at 0% 0%, rgba(164, 189, 145, 0.12) 0px, transparent 50%)";
+    blurFilter = "blur(25px) brightness(0.2) contrast(1.1)";
+  } else if (pathname === "/finanzas" || pathname === "/comisiones") {
+    // Terracotta Chukum theme (less blur so we see the texture)
+    bgGradient = "radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.1) 0px, transparent 50%)";
+    blurFilter = "blur(12px) brightness(0.24) contrast(1.08)";
+  } else if (pathname === "/respaldos") {
+    // Purple theme background (System / Admin)
+    bgGradient = "radial-gradient(at 0% 0%, rgba(167, 120, 250, 0.1) 0px, transparent 50%)";
+    blurFilter = "blur(25px) brightness(0.22) contrast(1.1)";
+  }
+
   return (
-    <div className="layout-container">
+    <div className="layout-container" style={{ position: "relative" }}>
+      {/* Dynamic Segment Background */}
+      <div style={{
+        position: "fixed",
+        top: "-50px",
+        left: "-50px",
+        right: "-50px",
+        bottom: "-50px",
+        backgroundImage: bgImage,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        filter: blurFilter,
+        zIndex: -2,
+        pointerEvents: "none",
+        transition: "all 0.8s ease" // Smooth fade transition between sections!
+      }} />
+      
+      {/* Secondary Dynamic Radial Glow */}
+      <div style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        backgroundImage: `${bgGradient}, radial-gradient(at 100% 100%, rgba(164, 189, 145, 0.05) 0px, transparent 50%)`,
+        zIndex: -2,
+        pointerEvents: "none",
+        transition: "all 0.8s ease"
+      }} />
       {/* Mobile Top Header */}
       <header className="mobile-header">
         <button 
@@ -177,11 +224,51 @@ export default function DashboardLayout({
         <nav className="nav-group">
           {navItems.map((item) => {
             const isActive = pathname === item.path;
+            
+            // Define active styles based on business segment
+            let activeStyle = {};
+            if (isActive) {
+              if (item.name === "Inventario") {
+                // Sage Green Segment (Stock / Materials)
+                activeStyle = {
+                  color: "#ffffff",
+                  background: "linear-gradient(135deg, rgba(164, 189, 145, 0.18) 0%, rgba(164, 189, 145, 0.05) 100%)",
+                  borderColor: "rgba(164, 189, 145, 0.35)",
+                  boxShadow: "0 0 15px rgba(164, 189, 145, 0.2)"
+                };
+              } else if (["Finanzas", "Comisiones"].includes(item.name)) {
+                // Gold / Terracotta Segment (Finanzas / Miami)
+                activeStyle = {
+                  color: "#ffffff",
+                  background: "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(245, 158, 11, 0.05) 100%)",
+                  borderColor: "rgba(245, 158, 11, 0.35)",
+                  boxShadow: "0 0 15px rgba(245, 158, 11, 0.2)"
+                };
+              } else if (item.name === "Respaldos") {
+                // Purple Segment (System / Admin)
+                activeStyle = {
+                  color: "#ffffff",
+                  background: "linear-gradient(135deg, rgba(167, 120, 250, 0.18) 0%, rgba(167, 120, 250, 0.05) 100%)",
+                  borderColor: "rgba(167, 120, 250, 0.35)",
+                  boxShadow: "0 0 15px rgba(167, 120, 250, 0.2)"
+                };
+              } else {
+                // Default Teal Segment (Sales / CRM / Help2Win)
+                activeStyle = {
+                  color: "#ffffff",
+                  background: "linear-gradient(135deg, rgba(29, 128, 136, 0.18) 0%, rgba(29, 128, 136, 0.05) 100%)",
+                  borderColor: "rgba(29, 128, 136, 0.35)",
+                  boxShadow: "0 0 15px rgba(29, 128, 136, 0.2)"
+                };
+              }
+            }
+
             return (
               <Link 
                 key={item.path} 
                 href={item.path} 
                 className={`nav-link ${isActive ? "active" : ""}`}
+                style={activeStyle}
                 onClick={() => setIsSidebarOpen(false)} // Close sidebar when clicked
               >
                 {item.icon}
