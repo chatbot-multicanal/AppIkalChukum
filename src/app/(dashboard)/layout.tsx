@@ -324,7 +324,28 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        <div className="sidebar-footer" style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "auto", borderTop: "1px solid var(--border-color)", paddingTop: "20px" }}>
+        {/* Branding Kit Graphic */}
+        <div style={{ 
+          marginTop: 'auto', 
+          padding: '16px 8px 0 8px', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center',
+          width: '100%'
+        }}>
+          <img 
+            src="/kit-chukum.png" 
+            alt="Ikal Chukum Kit" 
+            style={{ 
+              width: '90%', 
+              maxHeight: '140px', 
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.55))'
+            }} 
+          />
+        </div>
+
+        <div className="sidebar-footer" style={{ display: "flex", flexDirection: "column", gap: "14px", borderTop: "1px solid var(--border-color)", paddingTop: "20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div className="avatar">👤</div>
             <div className="user-info" style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -358,6 +379,68 @@ export default function DashboardLayout({
       </aside>
       
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Top Segment Tabs Row (Horizontal Grid) */}
+        <div style={{ 
+          padding: '40px 48px 0px 48px', 
+          maxWidth: '1600px', 
+          width: '100%', 
+          margin: '0 auto' 
+        }} className="top-nav-tabs-container">
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', 
+            gap: '12px',
+            width: '100%' 
+          }}>
+            {navItems.map((item) => {
+              const isActive = pathname === item.path;
+              const itemSegment = getSegmentConfig(item.path);
+              
+              // Custom styles for each tab card
+              const tabStyle = {
+                display: 'flex',
+                flexDirection: 'column' as const,
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '16px 12px',
+                borderRadius: '16px',
+                background: isActive ? `linear-gradient(135deg, ${itemSegment.color}1c 0%, ${itemSegment.color}05 100%)` : '#191D21',
+                border: `1px solid ${isActive ? `${itemSegment.color}80` : 'rgba(255, 255, 255, 0.05)'}`,
+                color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                boxShadow: isActive ? `0 0 20px ${itemSegment.color}33` : 'none',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              };
+
+              return (
+                <Link 
+                  key={item.path} 
+                  href={item.path}
+                  style={tabStyle}
+                  className="top-nav-tab-card"
+                >
+                  <div style={{ 
+                    color: isActive ? itemSegment.color : 'currentColor',
+                    transition: 'color 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {item.icon}
+                  </div>
+                  <span style={{ 
+                    fontSize: '0.8rem', 
+                    fontWeight: isActive ? 700 : 500,
+                    textAlign: 'center'
+                  }}>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         {children}
       </div>
     </div>
