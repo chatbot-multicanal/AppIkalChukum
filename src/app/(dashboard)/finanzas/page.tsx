@@ -435,7 +435,7 @@ export default function FinanzasPage() {
       ) : (
         <>
           {/* METRIC CARDS */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px", marginBottom: "30px" }}>
+          <div className="kpi-grid">
             
             {/* Ingresos Totales */}
             <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden" }}>
@@ -696,7 +696,8 @@ export default function FinanzasPage() {
                 No se encontraron movimientos financieros con los filtros seleccionados.
               </div>
             ) : (
-              <table className="premium-table">
+              <div style={{ overflowX: "auto" }}>
+                <table className="premium-table">
                 <thead>
                   <tr>
                     <th>Fecha</th>
@@ -818,7 +819,8 @@ export default function FinanzasPage() {
                   })}
                 </tbody>
               </table>
-            )}
+            </div>
+          )}
           </div>
         </>
       )}

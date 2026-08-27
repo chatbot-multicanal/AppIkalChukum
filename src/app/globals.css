@@ -672,6 +672,12 @@ select option {
     gap: 12px !important;
     margin-bottom: 20px !important;
   }
+
+  /* Make responsive side-by-side grids stack vertically on mobile */
+  .grid-responsive {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
 }
 
 /* Sidebar navigation icon styles */

@@ -173,7 +173,7 @@ export default function RespaldosPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "30px", alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "30px", alignItems: "start" }} className="grid-responsive">
         
         {/* Left Side: Backup list history */}
         <div className="glass-card" style={{ padding: '32px' }}>
@@ -188,7 +188,8 @@ export default function RespaldosPage() {
               No se han encontrado copias de seguridad.
             </div>
           ) : (
-            <table className="premium-table">
+            <div style={{ overflowX: "auto" }}>
+              <table className="premium-table">
               <thead>
                 <tr>
                   <th>Fecha de Respaldo</th>
@@ -253,7 +254,8 @@ export default function RespaldosPage() {
                 ))}
               </tbody>
             </table>
-          )}
+          </div>
+        )}
         </div>
 
         {/* Right Side: Restore DB Panel */}
