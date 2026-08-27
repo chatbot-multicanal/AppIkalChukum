@@ -395,7 +395,6 @@ export default function InventoryTable({
             <tr>
               <th>Producto</th>
               <th>Código SKU</th>
-              <th>Bodega</th>
               {showCost && <th>Costo Compra</th>}
               <th>Precio Base</th>
               <th>Cantidad</th>
@@ -406,7 +405,7 @@ export default function InventoryTable({
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7 + (showCost ? 1 : 0)} style={{ textAlign: "center", color: "var(--text-muted)", padding: "24px" }}>
+                <td colSpan={6 + (showCost ? 1 : 0)} style={{ textAlign: "center", color: "var(--text-muted)", padding: "24px" }}>
                   No hay inventario registrado en esta bodega.
                 </td>
               </tr>
@@ -430,7 +429,6 @@ export default function InventoryTable({
                         {formatSku(item.product.sku, warehouseName.includes("Miami"), viewMode)}
                       </span>
                     </td>
-                    <td>{warehouseName}</td>
                     {showCost && (
                       <td style={{ color: "var(--text-secondary)" }}>
                         ${getDisplayPrice(

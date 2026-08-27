@@ -265,7 +265,6 @@ export default function ClientesClient({ initialClients }: ClientesClientProps) 
                 <tr key={client.id}>
                   <td>
                     <div style={{ fontWeight: 700, color: '#ffffff' }}>{client.name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ID: {client.id}</div>
                   </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{client.company || "-"}</div>

@@ -194,7 +194,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
   return (
     <div className="animate-fade-in">
       {/* Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+      <div className="kpi-grid">
         <div className="glass-card" style={{ padding: '20px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Pendientes Aprobación</span>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, marginTop: '8px' }}>{draftCount}</div>

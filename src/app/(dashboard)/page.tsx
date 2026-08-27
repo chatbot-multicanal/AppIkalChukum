@@ -191,7 +191,7 @@ export default async function Home() {
         </div>
 
         {/* KPI Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+        <div className="kpi-grid">
           
           {/* Metric 1 */}
           <div className="glass-card" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>
@@ -465,7 +465,7 @@ export default async function Home() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+      <div className="kpi-grid">
         
         {/* Metric 1 */}
         <div className="glass-card" style={{ padding: '28px', position: 'relative', overflow: 'hidden' }}>

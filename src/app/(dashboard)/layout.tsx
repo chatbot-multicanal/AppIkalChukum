@@ -262,6 +262,8 @@ export default function DashboardLayout({
         <nav className="nav-group">
           {navItems.map((item) => {
             const isActive = pathname === item.path;
+            const itemSegment = getSegmentConfig(item.path);
+            const iconColor = itemSegment.color;
             
             // Define active styles based on business segment
             let activeStyle = {};
@@ -309,7 +311,15 @@ export default function DashboardLayout({
                 style={activeStyle}
                 onClick={() => setIsSidebarOpen(false)} // Close sidebar when clicked
               >
-                {item.icon}
+                <span style={{ 
+                  color: iconColor, 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  opacity: isActive ? 1 : 0.6,
+                  transition: 'all 0.25s ease' 
+                }} className="nav-icon-wrapper">
+                  {item.icon}
+                </span>
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                   <span>{item.name}</span>
                   {item.name === "Cotizaciones" && pendingFreightCount > 0 && (

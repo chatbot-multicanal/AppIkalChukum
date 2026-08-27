@@ -92,7 +92,7 @@ export default async function InventarioPage({
             Monitorea el stock físico de tus productos en tiempo real por bodega.
           </p>
         </div>
-        <div className="page-header-actions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        <div className="page-header-actions" style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
           {isAdmin && (
             <InventoryModals 
               warehouses={warehouses} 
@@ -111,7 +111,7 @@ export default async function InventarioPage({
       </div>
 
       {/* Warehouse Selector (Real dynamic cards) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+      <div className="kpi-grid">
         {warehouses.map((wh) => {
           const isSelected = wh.id === selectedWh.id;
           return (

@@ -647,3 +647,43 @@ select option {
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   KPI GRIDS & RESPONSIVE SCROLLABLE TABLES
+   ========================================================================== */
+
+/* Custom responsive grids for dashboard and quotes */
+.kpi-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+  gap: 20px !important;
+  margin-bottom: 30px !important;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  /* Force tables to scroll on mobile instead of squeezing columns */
+  .premium-table {
+    min-width: 850px !important;
+  }
+  
+  /* Make KPI grids show 2 columns on mobile instead of stacking vertically */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 20px !important;
+  }
+}
+
+/* Sidebar navigation icon styles */
+.nav-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-link:hover .nav-icon-wrapper,
+.nav-link.active .nav-icon-wrapper {
+  opacity: 1 !important;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+

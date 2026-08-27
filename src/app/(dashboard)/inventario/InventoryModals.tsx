@@ -172,7 +172,7 @@ export default function InventoryModals({
   return (
     <>
       {/* Botones disparadores (Tema premium) */}
-      <div className="page-header-actions">
+      <div className="page-header-actions" style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
         <button 
           onClick={() => setShowTransferModal(true)}
           className="btn-premium btn-secondary-sage"
