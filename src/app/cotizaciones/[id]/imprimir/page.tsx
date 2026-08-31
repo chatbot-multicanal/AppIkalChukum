@@ -140,7 +140,7 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
           rowGap: "5px"
         }}>
           <span style={{ fontWeight: 400, color: "#6b7280" }}>Número:</span>
-          <span style={{ fontWeight: 600, color: "#1f2937", textAlign: "right" }}>{quote.quoteNumber.split("-")[1] || quote.quoteNumber}</span>
+          <span style={{ fontWeight: 600, color: "#1f2937", textAlign: "right", fontSize: "11px", wordBreak: "break-all" }}>{quote.quoteNumber}</span>
           
           <span style={{ fontWeight: 400, color: "#6b7280" }}>Vendedor:</span>
           <span style={{ fontWeight: 600, color: "#1f2937", textAlign: "right" }}>{quote.user.name}</span>

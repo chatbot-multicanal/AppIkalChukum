@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
     // 3. Generar número de cotización
     const count = await db.quote.count();
-    const cleanClientName = client.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 15);
+    const cleanClientName = client.name.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 30);
     const dateStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const quoteNumber = `COT-${String(count + 101).padStart(4, "0")}-${cleanClientName}-${dateStr}`;
 
