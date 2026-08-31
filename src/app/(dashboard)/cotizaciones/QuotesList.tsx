@@ -28,6 +28,11 @@ interface Quote {
   shippingOptions?: string | null;
   createdAt: string;
   warehouseId?: string | null;
+  warehouse?: {
+    id: string;
+    name: string;
+    country: string;
+  } | null;
   client: {
     name: string;
   };
@@ -248,7 +253,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
             transition: "all 0.2s ease"
           }}
         >
-          {filterPendingFreight ? "🧡 Mostrando: Fletes Pendientes" : "⌛ Filtrar: Fletes Pendientes Miami"}
+          {filterPendingFreight ? "🧡 Mostrando: Fletes Pendientes" : "⌛ Filtrar: Fletes Pendientes"}
         </button>
       </div>
 
@@ -378,31 +383,40 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                           </span>
                         )}
 
-                        {quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) === 0 && (
-                          <span className="badge" style={{
-                            backgroundColor: "rgba(255, 159, 67, 0.08)",
-                            color: "#ff9f43",
-                            border: "1px solid rgba(255, 159, 67, 0.3)",
-                            alignSelf: "flex-start",
-                            fontSize: "0.75rem",
-                            padding: "3px 6px"
-                          }}>
-                            ⌛ Flete Miami Pendiente
-                          </span>
-                        )}
+                        {(() => {
+                          const isMiamiQuote = quote.warehouse?.country === "Estados Unidos" || quote.warehouse?.name?.toLowerCase().includes("miami") || quote.currency === "USD";
+                          const fleteTitle = isMiamiQuote ? "Flete Miami" : "Flete";
 
-                        {(quote.shippingQuoteStatus === "QUOTED" || (quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) > 0)) && (
-                          <span className="badge" style={{
-                            backgroundColor: "rgba(164, 189, 145, 0.08)",
-                            color: "var(--primary-sage)",
-                            border: "1px solid rgba(164, 189, 145, 0.3)",
-                            alignSelf: "flex-start",
-                            fontSize: "0.75rem",
-                            padding: "3px 6px"
-                          }}>
-                            ✓ Flete Miami Cotizado
-                          </span>
-                        )}
+                          return (
+                            <>
+                              {quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) === 0 && (
+                                <span className="badge" style={{
+                                  backgroundColor: "rgba(255, 159, 67, 0.08)",
+                                  color: "#ff9f43",
+                                  border: "1px solid rgba(255, 159, 67, 0.3)",
+                                  alignSelf: "flex-start",
+                                  fontSize: "0.75rem",
+                                  padding: "3px 6px"
+                                }}>
+                                  ⌛ {fleteTitle} Pendiente
+                                </span>
+                              )}
+
+                              {(quote.shippingQuoteStatus === "QUOTED" || (quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) > 0)) && (
+                                <span className="badge" style={{
+                                  backgroundColor: "rgba(164, 189, 145, 0.08)",
+                                  color: "var(--primary-sage)",
+                                  border: "1px solid rgba(164, 189, 145, 0.3)",
+                                  alignSelf: "flex-start",
+                                  fontSize: "0.75rem",
+                                  padding: "3px 6px"
+                                }}>
+                                  ✓ {fleteTitle} Cotizado
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>

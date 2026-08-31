@@ -348,26 +348,27 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
             top: "106mm", 
             left: "24mm", 
             right: "24mm",
+            width: "calc(100% - 48mm)",
             display: "flex",
             flexDirection: "column",
-            gap: "8px"
+            gap: "0px"
           }}>
-            {quote.items.map((item, idx) => (
+            {quote.items.map((item) => (
               <div key={item.id} style={{ 
                 display: "flex", 
                 width: "100%", 
-                fontSize: "14px", 
-                borderBottom: "1px solid #f3f4f6", 
-                paddingBottom: "10px", 
+                fontSize: "13px", 
+                borderBottom: "1px solid #e5e7eb", 
+                padding: "8px 0", 
                 alignItems: "center" 
               }}>
-                {/* Cantidad (Centrado en la primera columna del banner) */}
-                <div style={{ width: "23%", textAlign: "center", fontWeight: 600, color: "#1f2937" }}>
+                {/* Cantidad (Centrado en la primera columna del banner: 12%) */}
+                <div style={{ width: "12%", textAlign: "center", fontWeight: 600, color: "#1f2937" }}>
                   {item.quantity.toFixed(0)}
                 </div>
                 
-                {/* Descripción (Alineado izquierda) */}
-                <div style={{ width: "42%", textAlign: "left", color: "#1f2937", fontWeight: 500, paddingLeft: "10px" }}>
+                {/* Descripción (Alineado izquierda: 53%) */}
+                <div style={{ width: "53%", textAlign: "left", color: "#1f2937", fontWeight: 500, paddingLeft: "12px" }}>
                   {item.product.name.toUpperCase()}
                   {item.product.color && (
                     <span style={{ fontSize: "10px", color: "#6b7280", display: "block", marginTop: "1px" }}>
@@ -376,17 +377,61 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
                   )}
                 </div>
                 
-                {/* Precio (Derecha) */}
-                <div style={{ width: "17%", textAlign: "right", color: "#4b5563" }}>
-                  ${item.unitPrice.toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+                {/* Precio (17%) */}
+                <div style={{ width: "17%", padding: "0 10px", color: "#4b5563", fontWeight: 500 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>$</span>
+                    <span>{item.unitPrice.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
                 
-                {/* Total (Derecha en la última columna) */}
-                <div style={{ width: "18%", textAlign: "right", fontWeight: 700, color: "#1d8088" }}>
-                  ${item.total.toLocaleString("es-MX", { minimumFractionDigits: 0 })}
+                {/* Total (18%) */}
+                <div style={{ width: "18%", padding: "0 10px", fontWeight: 700, color: "#1d8088" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>$</span>
+                    <span>{item.total.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
               </div>
             ))}
+
+            {/* Fila de Envío / Flete en la tabla si tiene costo de envío */}
+            {quote.shippingCost > 0 && (
+              <div style={{ 
+                display: "flex", 
+                width: "100%", 
+                fontSize: "13px", 
+                borderBottom: "1px solid #e5e7eb", 
+                padding: "8px 0", 
+                alignItems: "center" 
+              }}>
+                {/* Cantidad */}
+                <div style={{ width: "12%", textAlign: "center", fontWeight: 600, color: "#1f2937" }}>
+                  1
+                </div>
+                
+                {/* Descripción */}
+                <div style={{ width: "53%", textAlign: "left", color: "#1f2937", fontWeight: 500, paddingLeft: "12px" }}>
+                  {`ENVÍO / FLETE A DOMICILIO${quote.shippingCarrier ? ` (VÍA ${quote.shippingCarrier.toUpperCase()})` : ""}`}
+                </div>
+                
+                {/* Precio */}
+                <div style={{ width: "17%", padding: "0 10px", color: "#4b5563", fontWeight: 500 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>$</span>
+                    <span>{quote.shippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+                
+                {/* Total */}
+                <div style={{ width: "18%", padding: "0 10px", fontWeight: 700, color: "#1d8088" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>$</span>
+                    <span>{quote.shippingCost.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -454,10 +499,10 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
             bottom: "48mm", 
             right: "24mm", 
             width: "65mm", 
-            fontSize: "14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px"
+            fontSize: "14px", 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: "6px" 
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", color: "#4b5563" }}>
               <span style={{ fontWeight: 500 }}>SUBTOTAL</span>
@@ -495,7 +540,6 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
           </div>
         )}
 
-
       </div>
 
       {/* Google Font link */}
@@ -504,20 +548,37 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
       {/* CSS para la impresión y visualización */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
+          @page {
+            size: letter portrait;
+            margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
           .no-print {
             display: none !important;
           }
           .screen-bg {
             background-color: white !important;
             padding: 0 !important;
+            margin: 0 !important;
+            min-height: auto !important;
+            height: auto !important;
           }
           .page {
             width: 215.9mm !important;
             height: 279.4mm !important;
-            margin: 0 !important;
+            max-height: 279.4mm !important;
+            margin: 0 auto !important;
             box-shadow: none !important;
-            page-break-after: always;
-            page-break-inside: avoid;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+            break-after: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
             background-image: url('/cotizacion-bg.png') !important;
             background-size: 100% 100% !important;
             background-repeat: no-repeat !important;

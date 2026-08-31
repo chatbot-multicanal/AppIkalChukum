@@ -10,6 +10,7 @@ export default async function CotizacionesPage() {
     include: {
       client: true,
       user: true,
+      warehouse: true,
       order: {
         select: {
           id: true,
