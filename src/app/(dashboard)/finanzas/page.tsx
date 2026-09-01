@@ -172,15 +172,37 @@ export default function FinanzasPage() {
     label: m.monthLabel
   })).reverse(); // Mostrar los más recientes primero
 
+  // Helper para formatear en USD
+  const formatUSD = (val: number) => {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val);
+  };
+
   // Calcular métricas filtradas según el mes seleccionado
   const getFilteredData = () => {
     if (selectedMonth === "ALL") {
+      let calcExpensesUSD = 0;
+      let calcManualIncomeUSD = 0;
+      records.forEach(r => {
+        const amtUSD = r.currency === "USD" ? r.amount : (r.exchangeRate > 0 ? r.amount / r.exchangeRate : r.amount / 20);
+        if (r.type === "INCOME") calcManualIncomeUSD += amtUSD;
+        if (r.type === "EXPENSE") calcExpensesUSD += amtUSD;
+      });
+
+      const calcSalesUSD = summary.salesIncome / 20;
+      const calcTotalIncomeUSD = calcSalesUSD + calcManualIncomeUSD;
+      const calcNetProfitUSD = calcTotalIncomeUSD - calcExpensesUSD;
+
       return {
         totalIncome: summary.totalIncome,
+        totalIncomeUSD: calcTotalIncomeUSD,
         salesIncome: summary.salesIncome,
+        salesIncomeUSD: calcSalesUSD,
         manualIncome: summary.manualIncome,
+        manualIncomeUSD: calcManualIncomeUSD,
         totalExpenses: summary.totalExpenses,
+        totalExpensesUSD: calcExpensesUSD,
         netProfit: summary.netProfit,
+        netProfitUSD: calcNetProfitUSD,
         records: records,
         categoryBreakdown: categoryBreakdown
       };
@@ -194,22 +216,30 @@ export default function FinanzasPage() {
 
     // Ventas automáticas del mes
     const selSalesIncome = salesIncomeByMonth[selectedMonth] || 0;
+    const selSalesIncomeUSD = selSalesIncome / 20;
 
     // Ingresos y egresos manuales del mes
     let selManualIncome = 0;
+    let selManualIncomeUSD = 0;
     let selTotalExpenses = 0;
+    let selTotalExpensesUSD = 0;
 
     filteredRecords.forEach(r => {
       const converted = r.amount * r.exchangeRate;
+      const amtUSD = r.currency === "USD" ? r.amount : (r.exchangeRate > 0 ? r.amount / r.exchangeRate : r.amount / 20);
       if (r.type === "INCOME") {
         selManualIncome += converted;
+        selManualIncomeUSD += amtUSD;
       } else if (r.type === "EXPENSE") {
         selTotalExpenses += converted;
+        selTotalExpensesUSD += amtUSD;
       }
     });
 
     const selTotalIncome = selSalesIncome + selManualIncome;
+    const selTotalIncomeUSD = selSalesIncomeUSD + selManualIncomeUSD;
     const selNetProfit = selTotalIncome - selTotalExpenses;
+    const selNetProfitUSD = selTotalIncomeUSD - selTotalExpensesUSD;
 
     // Desglose de gastos por categoría del mes
     const categoryMap: Record<string, number> = {};
@@ -227,10 +257,15 @@ export default function FinanzasPage() {
 
     return {
       totalIncome: selTotalIncome,
+      totalIncomeUSD: selTotalIncomeUSD,
       salesIncome: selSalesIncome,
+      salesIncomeUSD: selSalesIncomeUSD,
       manualIncome: selManualIncome,
+      manualIncomeUSD: selManualIncomeUSD,
       totalExpenses: selTotalExpenses,
+      totalExpensesUSD: selTotalExpensesUSD,
       netProfit: selNetProfit,
+      netProfitUSD: selNetProfitUSD,
       records: filteredRecords,
       categoryBreakdown: selCategoryBreakdown
     };
@@ -439,28 +474,34 @@ export default function FinanzasPage() {
             
             {/* Ingresos Totales */}
             <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase" }}>Ingresos Totales (MXN)</span>
                 <span style={{ fontSize: "1.5rem" }}>💰</span>
               </div>
               <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: "#10b981", margin: 0 }}>
                 {formatMXN(currentData.totalIncome)}
               </h2>
+              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#60a5fa", marginTop: "4px" }}>
+                ≈ {formatUSD(currentData.totalIncomeUSD)}
+              </div>
               <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--text-muted)", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
-                <span>Ventas ERP: {formatMXN(currentData.salesIncome)}</span>
-                <span>Otros: {formatMXN(currentData.manualIncome)}</span>
+                <span>Ventas: {formatMXN(currentData.salesIncome)} ({formatUSD(currentData.salesIncomeUSD)})</span>
+                <span>Otros: {formatMXN(currentData.manualIncome)} ({formatUSD(currentData.manualIncomeUSD)})</span>
               </div>
             </div>
 
             {/* Gastos Totales */}
             <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase" }}>Gastos Registrados (MXN)</span>
                 <span style={{ fontSize: "1.5rem" }}>💸</span>
               </div>
               <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: "#f43f5e", margin: 0 }}>
                 {formatMXN(currentData.totalExpenses)}
               </h2>
+              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#f87171", marginTop: "4px" }}>
+                ≈ {formatUSD(currentData.totalExpensesUSD)}
+              </div>
               <p style={{ margin: "12px 0 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
                 Incluye rentas, servicios y egresos capturados por bodegas.
               </p>
@@ -468,13 +509,16 @@ export default function FinanzasPage() {
 
             {/* Utilidad Neta */}
             <div className="glass-card" style={{ padding: "24px", position: "relative", overflow: "hidden", borderLeft: `4px solid ${currentData.netProfit >= 0 ? "#10b981" : "#ef4444"}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                 <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.5px", textTransform: "uppercase" }}>Utilidad Neta (MXN)</span>
                 <span style={{ fontSize: "1.5rem" }}>📈</span>
               </div>
               <h2 style={{ fontSize: "2.1rem", fontWeight: 800, color: currentData.netProfit >= 0 ? "#34d399" : "#ef4444", margin: 0 }}>
                 {formatMXN(currentData.netProfit)}
               </h2>
+              <div style={{ fontSize: "1.05rem", fontWeight: 700, color: currentData.netProfitUSD >= 0 ? "#34d399" : "#f87171", marginTop: "4px" }}>
+                ≈ {formatUSD(currentData.netProfitUSD)}
+              </div>
               <p style={{ margin: "12px 0 0 0", fontSize: "0.8rem", color: "var(--text-muted)" }}>
                 Rendimiento financiero neto del ejercicio actual.
               </p>
