@@ -55,6 +55,7 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
   const [quotes, setQuotes] = useState<Quote[]>(initialQuotes);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPendingFreight, setFilterPendingFreight] = useState(false);
+  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>("ALL");
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string>("VENDEDOR");
   const router = useRouter();
@@ -220,23 +221,82 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
 
       {/* Filtros y Búsqueda */}
       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "24px" }}>
-        <input
-          type="text"
-          placeholder="Buscar por folio o cliente..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "8px",
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid var(--border-color)",
-            color: "white",
-            outline: "none",
-            fontSize: "0.85rem",
-            width: "100%",
-            maxWidth: "320px"
-          }}
-        />
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px", width: "100%", maxWidth: "700px" }}>
+          <input
+            type="text"
+            placeholder="Buscar por folio o cliente..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              padding: "10px 16px",
+              borderRadius: "8px",
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid var(--border-color)",
+              color: "white",
+              outline: "none",
+              fontSize: "0.85rem",
+              width: "100%",
+              maxWidth: "280px"
+            }}
+          />
+
+          {/* Selector de Bodega / Zona */}
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setSelectedWarehouseFilter("ALL")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: selectedWarehouseFilter === "ALL" ? "1px solid var(--primary-teal)" : "1px solid var(--border-color)",
+                background: selectedWarehouseFilter === "ALL" ? "rgba(29, 128, 136, 0.2)" : "rgba(255,255,255,0.02)",
+                color: selectedWarehouseFilter === "ALL" ? "#ffffff" : "var(--text-secondary)",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              🏢 Todas ({quotes.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedWarehouseFilter("MERIDA")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: selectedWarehouseFilter === "MERIDA" ? "1px solid #10b981" : "1px solid var(--border-color)",
+                background: selectedWarehouseFilter === "MERIDA" ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.02)",
+                color: selectedWarehouseFilter === "MERIDA" ? "#10b981" : "var(--text-secondary)",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              🇲🇽 Mérida (MXN) ({quotes.filter(q => !(q.warehouse?.country === "Estados Unidos" || q.warehouse?.name?.toLowerCase().includes("miami") || q.currency === "USD")).length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedWarehouseFilter("MIAMI")}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: selectedWarehouseFilter === "MIAMI" ? "1px solid #3b82f6" : "1px solid var(--border-color)",
+                background: selectedWarehouseFilter === "MIAMI" ? "rgba(59, 130, 246, 0.15)" : "rgba(255,255,255,0.02)",
+                color: selectedWarehouseFilter === "MIAMI" ? "#60a5fa" : "var(--text-secondary)",
+                fontWeight: 600,
+                fontSize: "0.8rem",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              🇺🇸 Miami (USD) ({quotes.filter(q => q.warehouse?.country === "Estados Unidos" || q.warehouse?.name?.toLowerCase().includes("miami") || q.currency === "USD").length})
+            </button>
+          </div>
+        </div>
 
         <button
           type="button"
@@ -274,11 +334,16 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
           <tbody>
             {(() => {
               const filteredQuotes = quotes.filter(quote => {
+                const isMiami = quote.warehouse?.country === "Estados Unidos" || quote.warehouse?.name?.toLowerCase().includes("miami") || quote.currency === "USD";
+                
+                if (selectedWarehouseFilter === "MIAMI" && !isMiami) return false;
+                if (selectedWarehouseFilter === "MERIDA" && isMiami) return false;
+
                 const matchesSearch = 
                   quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   quote.client.name.toLowerCase().includes(searchQuery.toLowerCase());
                 
-                const matchesFreight = !filterPendingFreight || quote.shippingQuoteStatus === "PENDING_MIAMI";
+                const matchesFreight = !filterPendingFreight || (quote.shippingQuoteStatus === "PENDING_MIAMI" && (quote.shippingCost || 0) === 0);
                 
                 return matchesSearch && matchesFreight;
               });
