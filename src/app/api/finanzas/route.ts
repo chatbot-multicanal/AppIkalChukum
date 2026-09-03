@@ -56,6 +56,12 @@ export async function GET(request: Request) {
       include: {
         warehouse: {
           select: { name: true }
+        },
+        client: {
+          select: { name: true, city: true, country: true }
+        },
+        user: {
+          select: { name: true }
         }
       },
       orderBy: { createdAt: "desc" }
@@ -244,6 +250,29 @@ export async function GET(request: Request) {
       salesIncomeByMonth[key] = (salesIncomeByMonth[key] || 0) + (quote.total * quote.exchangeRate);
     });
 
+    // 6. Mapear ventas de cotizaciones aprobadas como registros de ingresos unificados
+    const salesRecords = approvedQuotes.map((quote) => ({
+      id: `quote-${quote.id}`,
+      type: "INCOME" as const,
+      category: "VENTAS",
+      amount: quote.total,
+      currency: quote.currency || "MXN",
+      exchangeRate: quote.exchangeRate || 1.0,
+      description: `Venta Aprobada: Cotización #${quote.quoteNumber}${quote.client ? ` • Cliente: ${quote.client.name}` : ""}`,
+      date: quote.createdAt.toISOString(),
+      status: "PAGADO",
+      createdAt: quote.createdAt.toISOString(),
+      warehouseId: quote.warehouseId,
+      warehouse: quote.warehouse,
+      user: quote.user ? { name: quote.user.name } : { name: "Sistema de Ventas" },
+      isAutomaticSale: true
+    }));
+
+    // Combinar ingresos manuales, gastos y ventas automáticas ordenados cronológicamente
+    const allRecords = [...manualRecords, ...salesRecords].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
     return NextResponse.json({
       success: true,
       summary: {
@@ -260,7 +289,7 @@ export async function GET(request: Request) {
       },
       chartData,
       categoryBreakdown,
-      records: manualRecords,
+      records: allRecords,
       warehouses
     });
 

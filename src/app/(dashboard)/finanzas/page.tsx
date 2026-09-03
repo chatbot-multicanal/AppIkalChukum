@@ -16,6 +16,7 @@ interface FinanceRecord {
   warehouseId?: string | null;
   warehouse?: { name: string } | null;
   user?: { name: string } | null;
+  isAutomaticSale?: boolean;
 }
 
 interface Summary {
@@ -39,6 +40,7 @@ interface CategoryBreakdown {
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
+  VENTAS: "💰 Ventas / Facturación",
   RENTA: "🏢 Renta de Espacios",
   SUELDOS: "👥 Sueldos y Nómina",
   MATERIALES: "🪵 Compra de Materiales",
@@ -49,10 +51,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
+  VENTAS: "#10b981", // Esmeralda / Verde
   RENTA: "#3b82f6", // Azul
   SUELDOS: "#8b5cf6", // Violeta
   MATERIALES: "#f59e0b", // Ámbar
-  SERVICIOS: "#10b981", // Esmeralda
+  SERVICIOS: "#06b6d4", // Cyan
   IMPUESTOS: "#ec4899", // Rosa
   BODEGA_OPERACION: "#f43f5e", // Rosa fuerte/rojo
   OTROS: "#6b7280"  // Gris
@@ -184,7 +187,7 @@ export default function FinanzasPage() {
       let calcManualIncomeUSD = 0;
       records.forEach(r => {
         const amtUSD = r.currency === "USD" ? r.amount : (r.exchangeRate > 0 ? r.amount / r.exchangeRate : r.amount / 20);
-        if (r.type === "INCOME") calcManualIncomeUSD += amtUSD;
+        if (!r.isAutomaticSale && r.type === "INCOME") calcManualIncomeUSD += amtUSD;
         if (r.type === "EXPENSE") calcExpensesUSD += amtUSD;
       });
 
@@ -208,7 +211,7 @@ export default function FinanzasPage() {
       };
     }
 
-    // Filtrar registros manuales del mes
+    // Filtrar registros manuales y ventas del mes
     const filteredRecords = records.filter(r => {
       const rMonth = r.date.slice(0, 7); // "YYYY-MM"
       return rMonth === selectedMonth;
@@ -218,7 +221,7 @@ export default function FinanzasPage() {
     const selSalesIncome = salesIncomeByMonth[selectedMonth] || 0;
     const selSalesIncomeUSD = selSalesIncome / 20;
 
-    // Ingresos y egresos manuales del mes
+    // Ingresos manuales y egresos del mes
     let selManualIncome = 0;
     let selManualIncomeUSD = 0;
     let selTotalExpenses = 0;
@@ -227,7 +230,7 @@ export default function FinanzasPage() {
     filteredRecords.forEach(r => {
       const converted = r.amount * r.exchangeRate;
       const amtUSD = r.currency === "USD" ? r.amount : (r.exchangeRate > 0 ? r.amount / r.exchangeRate : r.amount / 20);
-      if (r.type === "INCOME") {
+      if (!r.isAutomaticSale && r.type === "INCOME") {
         selManualIncome += converted;
         selManualIncomeUSD += amtUSD;
       } else if (r.type === "EXPENSE") {
@@ -674,9 +677,14 @@ export default function FinanzasPage() {
           {/* TABLE OF MOVEMENTS */}
           <div className="glass-card" style={{ padding: "32px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "14px" }}>
-              <h3 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, margin: 0 }}>
-                Historial de Movimientos Manuales
-              </h3>
+              <div>
+                <h3 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, margin: "0 0 4px 0" }}>
+                  Historial Completo de Movimientos (Ingresos y Gastos)
+                </h3>
+                <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                  Registro unificado de ventas automáticas (cotizaciones aprobadas) y gastos operativos.
+                </span>
+              </div>
 
               {/* Filtros */}
               <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -686,8 +694,8 @@ export default function FinanzasPage() {
                   style={{ background: "var(--card-bg)", color: "white", border: "1px solid var(--border-color)", padding: "6px 12px", borderRadius: "8px", fontSize: "0.85rem" }}
                 >
                   <option value="ALL">Todos los Tipos</option>
-                  <option value="INCOME">Ingresos</option>
-                  <option value="EXPENSE">Gastos</option>
+                  <option value="INCOME">🟢 Solo Ingresos (Ventas)</option>
+                  <option value="EXPENSE">🔴 Solo Gastos (Costos)</option>
                 </select>
 
                 <select 
@@ -765,24 +773,35 @@ export default function FinanzasPage() {
                     const isExpense = rec.type === "EXPENSE";
 
                     return (
-                      <tr key={rec.id}>
-                        <td>{formattedDate}</td>
+                      <tr 
+                        key={rec.id}
+                        style={{
+                          borderLeft: isExpense ? "4px solid #ef4444" : "4px solid #10b981",
+                          backgroundColor: isExpense ? "rgba(239, 68, 68, 0.02)" : "rgba(16, 185, 129, 0.02)"
+                        }}
+                      >
+                        <td style={{ fontWeight: 500 }}>{formattedDate}</td>
                         <td>
                           <span style={{ 
-                            padding: "4px 8px", 
+                            padding: "4px 10px", 
                             borderRadius: "6px", 
                             fontSize: "0.75rem", 
-                            fontWeight: 700, 
-                            backgroundColor: isExpense ? "rgba(239, 68, 68, 0.12)" : "rgba(16, 185, 129, 0.12)",
-                            color: isExpense ? "#ef4444" : "#10b981" 
+                            fontWeight: 800, 
+                            backgroundColor: isExpense ? "rgba(239, 68, 68, 0.16)" : "rgba(16, 185, 129, 0.16)",
+                            color: isExpense ? "#f87171" : "#34d399",
+                            border: isExpense ? "1px solid rgba(239, 68, 68, 0.35)" : "1px solid rgba(16, 185, 129, 0.35)",
+                            display: "inline-block",
+                            letterSpacing: "0.5px"
                           }}>
-                            {isExpense ? "GASTO" : "INGRESO"}
+                            {isExpense ? "🔴 GASTO" : "🟢 INGRESO"}
                           </span>
                         </td>
                         <td style={{ fontWeight: 600 }}>{CATEGORY_LABELS[rec.category]?.slice(3) || rec.category}</td>
                         <td>
                           <div style={{ display: "flex", flexDirection: "column" }}>
-                            <span>{rec.description || "Sin descripción"}</span>
+                            <span style={{ color: isExpense ? "#f3f4f6" : "#ffffff", fontWeight: isExpense ? 500 : 600 }}>
+                              {rec.description || "Sin descripción"}
+                            </span>
                             {rec.warehouse && (
                               <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
                                 📍 Bodega: {rec.warehouse.name}
@@ -791,12 +810,22 @@ export default function FinanzasPage() {
                           </div>
                         </td>
                         <td>
-                          <span style={{ fontWeight: 600 }}>
+                          <span style={{ 
+                            fontWeight: 700,
+                            color: isExpense ? "#f87171" : "#34d399",
+                            fontSize: "0.95rem"
+                          }}>
+                            {isExpense ? "- " : "+ "}
                             {rec.currency === "USD" ? `$${rec.amount.toFixed(2)} USD` : formatMXN(rec.amount)}
                           </span>
                         </td>
                         <td>
-                          <span style={{ color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                          <span style={{ 
+                            color: isExpense ? "rgba(248, 113, 113, 0.9)" : "rgba(52, 211, 153, 0.9)", 
+                            fontSize: "0.85rem",
+                            fontWeight: 600
+                          }}>
+                            {isExpense ? "- " : "+ "}
                             {formatMXN(rec.amount * rec.exchangeRate)}
                           </span>
                         </td>
@@ -804,59 +833,93 @@ export default function FinanzasPage() {
                           {rec.user?.name || "Desconocido"}
                         </td>
                         <td>
-                          <button
-                            onClick={() => handleToggleStatus(rec.id, rec.status)}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              cursor: "pointer",
-                              outline: "none"
-                            }}
-                            title="Haz clic para cambiar estado"
-                          >
+                          {rec.isAutomaticSale ? (
                             <span style={{ 
                               padding: "4px 8px", 
                               borderRadius: "6px", 
                               fontSize: "0.75rem", 
                               fontWeight: 700, 
-                              backgroundColor: rec.status === "PAGADO" ? "rgba(16, 185, 129, 0.12)" : "rgba(255, 159, 67, 0.12)",
-                              color: rec.status === "PAGADO" ? "#10b981" : "#ff9f43",
+                              backgroundColor: "rgba(16, 185, 129, 0.12)",
+                              color: "#10b981",
                               display: "inline-block",
-                              border: rec.status === "PAGADO" ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(255, 159, 67, 0.3)"
+                              border: "1px solid rgba(16, 185, 129, 0.3)"
                             }}>
-                              {rec.status === "PAGADO" ? "✓ Pagado" : "⏳ Pendiente"}
+                              ✓ Cobrado
                             </span>
-                          </button>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleStatus(rec.id, rec.status)}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                cursor: "pointer",
+                                outline: "none"
+                              }}
+                              title="Haz clic para cambiar estado"
+                            >
+                              <span style={{ 
+                                padding: "4px 8px", 
+                                borderRadius: "6px", 
+                                fontSize: "0.75rem", 
+                                fontWeight: 700, 
+                                backgroundColor: rec.status === "PAGADO" ? "rgba(16, 185, 129, 0.12)" : "rgba(255, 159, 67, 0.12)",
+                                color: rec.status === "PAGADO" ? "#10b981" : "#ff9f43",
+                                display: "inline-block",
+                                border: rec.status === "PAGADO" ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(255, 159, 67, 0.3)"
+                              }}>
+                                {rec.status === "PAGADO" ? "✓ Pagado" : "⏳ Pendiente"}
+                              </span>
+                            </button>
+                          )}
                         </td>
                         <td style={{ textAlign: "right" }}>
-                          <button 
-                            onClick={() => handleEditClick(rec)}
-                            style={{ 
-                              background: "none", 
-                              border: "none", 
-                              color: "#ff9f43", 
-                              cursor: "pointer", 
-                              fontSize: "1.1rem",
-                              marginRight: "10px"
-                            }}
-                            title="Editar registro"
-                          >
-                            ✏️
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteRecord(rec.id)}
-                            style={{ 
-                              background: "none", 
-                              border: "none", 
-                              color: "#ef4444", 
-                              cursor: "pointer", 
-                              fontSize: "1.1rem" 
-                            }}
-                            title="Eliminar registro"
-                          >
-                            🗑️
-                          </button>
+                          {rec.isAutomaticSale ? (
+                            <span 
+                              style={{ 
+                                fontSize: "0.75rem", 
+                                color: "#10b981", 
+                                background: "rgba(16, 185, 129, 0.1)", 
+                                padding: "3px 8px", 
+                                borderRadius: "6px",
+                                border: "1px solid rgba(16, 185, 129, 0.2)",
+                                fontWeight: 600
+                              }}
+                              title="Venta registrada automáticamente desde Cotizaciones"
+                            >
+                              🧾 Venta Auto
+                            </span>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleEditClick(rec)}
+                                style={{ 
+                                  background: "none", 
+                                  border: "none", 
+                                  color: "#ff9f43", 
+                                  cursor: "pointer", 
+                                  fontSize: "1.1rem",
+                                  marginRight: "10px"
+                                }}
+                                title="Editar registro"
+                              >
+                                ✏️
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteRecord(rec.id)}
+                                style={{ 
+                                  background: "none", 
+                                  border: "none", 
+                                  color: "#ef4444", 
+                                  cursor: "pointer", 
+                                  fontSize: "1.1rem" 
+                                }}
+                                title="Eliminar registro"
+                              >
+                                🗑️
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
