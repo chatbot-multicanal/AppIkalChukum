@@ -260,12 +260,17 @@ export default function RespaldosPage() {
 
         {/* Right Side: Restore DB Panel */}
         <div className="glass-card" style={{ padding: "30px", display: "flex", flexDirection: "column", gap: "20px" }}>
-          <h2 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, borderBottom: "1px solid var(--border-color)", paddingBottom: "12px", margin: 0 }}>
-            Restauración de Emergencia
-          </h2>
+          <div>
+            <h2 style={{ fontSize: "1.25rem", color: "#ffffff", fontWeight: 700, borderBottom: "1px solid var(--border-color)", paddingBottom: "12px", margin: 0 }}>
+              Recuperar Base de Datos (.json)
+            </h2>
+            <span style={{ fontSize: "0.75rem", color: "var(--primary-teal)", fontWeight: 600, display: "block", marginTop: "6px" }}>
+              (Solo si necesitas restaurar un respaldo previo)
+            </span>
+          </div>
 
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            Sube un archivo de respaldo `.json` descargado previamente para restaurar toda la base de datos a ese estado.
+            Si tienes un archivo de respaldo <code style={{ color: "var(--primary-sage)" }}>.json</code> que descargaste anteriormente, puedes subirlo aquí para regresar toda la base de datos a ese punto.
           </p>
 
           <div style={{ background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px", padding: "16px" }}>
@@ -273,7 +278,7 @@ export default function RespaldosPage() {
               ⚠️ ATENCIÓN:
             </span>
             <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>
-              Esta operación es destructiva y reescribirá la base de datos. Asegúrate de tener una copia de respaldo antes de continuar.
+              Esta operación es destructiva y reescribirá la base de datos. Para solo guardar una copia nueva, usa el botón superior <strong>&quot;Crear Respaldo Ahora&quot;</strong>.
             </span>
           </div>
 

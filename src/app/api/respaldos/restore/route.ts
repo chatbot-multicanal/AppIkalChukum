@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     await db.$transaction(async (tx) => {
       // 1. Limpiar tablas existentes en orden de dependencia para evitar FK constraint errors
       await tx.auditLog.deleteMany();
+      await tx.financeRecord.deleteMany();
       await tx.comment.deleteMany();
       await tx.commission.deleteMany();
       await tx.order.deleteMany();
@@ -94,6 +95,9 @@ export async function POST(request: Request) {
       }
       if (restoredData.comments && restoredData.comments.length > 0) {
         await tx.comment.createMany({ data: restoredData.comments });
+      }
+      if (restoredData.financeRecords && restoredData.financeRecords.length > 0) {
+        await tx.financeRecord.createMany({ data: restoredData.financeRecords });
       }
       if (restoredData.auditLogs && restoredData.auditLogs.length > 0) {
         await tx.auditLog.createMany({ data: restoredData.auditLogs });

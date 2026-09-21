@@ -55,6 +55,7 @@ export async function POST() {
     const comments = await db.comment.findMany();
     const systemSettings = await db.systemSetting.findMany();
     const auditLogs = await db.auditLog.findMany();
+    const financeRecords = await db.financeRecord.findMany();
 
     const backupData = {
       version: "2026.06",
@@ -71,7 +72,8 @@ export async function POST() {
         commissions,
         comments,
         systemSettings,
-        auditLogs
+        auditLogs,
+        financeRecords
       }
     };
 
