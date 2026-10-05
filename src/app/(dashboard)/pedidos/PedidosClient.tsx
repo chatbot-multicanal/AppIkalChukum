@@ -431,48 +431,46 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
             display: 'flex', 
             flexDirection: 'column', 
             gap: '8px', 
-            background: 'rgba(255,255,255,0.02)', 
-            padding: '10px', 
+            background: 'rgba(155, 89, 182, 0.08)', 
+            padding: '10px 12px', 
             borderRadius: '10px', 
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: '1px solid rgba(155, 89, 182, 0.2)',
             marginBottom: '8px' 
           }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-              📅 Programar Disponibilidad de Entrega:
+            <span style={{ fontSize: '0.72rem', color: '#d7bde2', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              📅 Disponibilidad para Entrega:
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '3px' }}>FECHA</label>
+              <div style={{ flex: 1.2 }}>
                 <input
                   type="date"
                   value={dateValue}
                   onChange={(e) => setDeliveryDates(prev => ({ ...prev, [order.id]: e.target.value }))}
                   style={{
                     width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-color)',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
                     borderRadius: '6px',
-                    padding: '5px 8px',
+                    padding: '6px 8px',
                     color: '#ffffff',
-                    fontSize: '0.8rem',
+                    fontSize: '0.75rem',
                     outline: 'none'
                   }}
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '3px' }}>HORA</label>
                 <input
                   type="time"
                   value={timeValue}
                   onChange={(e) => setDeliveryTimes(prev => ({ ...prev, [order.id]: e.target.value }))}
                   style={{
                     width: '100%',
-                    background: 'var(--bg-app)',
-                    border: '1px solid var(--border-color)',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
                     borderRadius: '6px',
-                    padding: '5px 8px',
+                    padding: '6px 8px',
                     color: '#ffffff',
-                    fontSize: '0.8rem',
+                    fontSize: '0.75rem',
                     outline: 'none'
                   }}
                 />
@@ -840,24 +838,32 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
     <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '20px', minHeight: '65vh', alignItems: 'flex-start' }}>
       {columns.map((col, idx) => (
         <div key={idx} className="glass-card" style={{ 
-          minWidth: '300px', 
-          maxWidth: '300px', 
-          padding: '20px', 
+          minWidth: '320px', 
+          maxWidth: '320px', 
+          padding: '18px', 
           display: 'flex',
           flexDirection: 'column',
-          gap: '16px',
-          background: 'rgba(12, 15, 23, 0.45)',
-          border: '1px solid var(--border-color)',
+          gap: '14px',
+          background: 'rgba(12, 15, 23, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
           borderRadius: '20px',
           flexShrink: 0
         }}>
           {/* Column Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: col.color }}></div>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#ffffff' }}>{col.title}</h3>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: col.color, boxShadow: `0 0 8px ${col.color}` }}></div>
+              <h3 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.2px' }}>{col.title}</h3>
             </div>
-            <span className="badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--text-secondary)', borderRadius: '8px' }}>
+            <span style={{ 
+              fontSize: '0.75rem', 
+              fontWeight: 800, 
+              padding: '2px 8px', 
+              borderRadius: '12px', 
+              background: `${col.color}20`, 
+              color: col.color, 
+              border: `1px solid ${col.color}40` 
+            }}>
               {col.orders.length}
             </span>
           </div>
@@ -888,166 +894,159 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                 });
 
                 const isPendingSave = updatingId === order.id;
+                const fullFolio = order.quote.quoteNumber;
+                const folioMatch = fullFolio.match(/COT-\d+/i) || fullFolio.match(/COT-\d{4}-\d+/i);
+                const shortFolio = folioMatch ? folioMatch[0] : fullFolio.split("-").slice(0, 2).join("-");
 
                 return (
                   <div key={order.id} className="glass-card" style={{ 
                     padding: '16px', 
-                    borderLeft: `3px solid ${col.color}`,
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderColor: 'rgba(255, 255, 255, 0.04)',
-                    boxShadow: 'var(--shadow-sm)',
-                    opacity: isPendingSave ? 0.6 : 1
+                    borderLeft: `4px solid ${col.color}`,
+                    background: 'rgba(18, 24, 38, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.07)',
+                    borderRight: '1px solid rgba(255, 255, 255, 0.07)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                    borderRadius: '16px',
+                    opacity: isPendingSave ? 0.6 : 1,
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary-teal)' }}>
-                        {order.quote.quoteNumber}
+                    {/* Top: Folio Badge & Date */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span 
+                        title={fullFolio}
+                        style={{ 
+                          fontSize: '0.78rem', 
+                          fontWeight: 800, 
+                          color: 'var(--primary-teal)',
+                          background: 'rgba(29, 128, 136, 0.12)',
+                          border: '1px solid rgba(29, 128, 136, 0.3)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          letterSpacing: '0.3px'
+                        }}
+                      >
+                        {shortFolio}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                         {dateStr}
                       </span>
                     </div>
                     
-                    <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#ffffff', marginBottom: '6px' }}>{order.quote.client.name}</h4>
+                    {/* Client Name */}
+                    <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#ffffff', marginBottom: '8px', letterSpacing: '-0.2px' }}>
+                      {order.quote.client.name}
+                    </h4>
                     
-                    {/* Método de Entrega */}
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary-teal)', marginBottom: '6px' }}>
-                      {order.quote.deliveryMethod === "ENVIO" ? "🚚 Envío a Domicilio" : "🛍️ Recolecta en Bodega"}
+                    {/* Delivery Method & Warehouse Badges Row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                      <span style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        color: order.quote.deliveryMethod === "ENVIO" ? '#60a5fa' : '#34d399',
+                        background: order.quote.deliveryMethod === "ENVIO" ? 'rgba(96, 165, 250, 0.1)' : 'rgba(52, 211, 153, 0.1)',
+                        border: `1px solid ${order.quote.deliveryMethod === "ENVIO" ? 'rgba(96, 165, 250, 0.25)' : 'rgba(52, 211, 153, 0.25)'}`,
+                        padding: '3px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        {order.quote.deliveryMethod === "ENVIO" ? "🚚 A Domicilio" : "🛍️ Recolecta"}
+                      </span>
+
+                      {order.warehouse && (
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: 'var(--primary-sage)',
+                          background: 'rgba(164, 189, 145, 0.1)',
+                          border: '1px solid rgba(164, 189, 145, 0.25)',
+                          padding: '3px 8px',
+                          borderRadius: '6px'
+                        }}>
+                          📍 {order.warehouse.name.replace("Bodega ", "")}
+                        </span>
+                      )}
                     </div>
 
                     {/* Dirección de Entrega (Solo para ENVIO) */}
                     {order.quote.deliveryMethod === "ENVIO" && (
                       <div style={{ 
-                        fontSize: '0.75rem', 
+                        fontSize: '0.74rem', 
                         color: 'var(--text-secondary)', 
-                        background: 'rgba(255,255,255,0.02)', 
+                        background: 'rgba(0, 0, 0, 0.25)', 
                         padding: '8px 10px', 
-                        borderRadius: '6px', 
-                        border: '1px dashed rgba(255,255,255,0.08)',
-                        marginBottom: '8px',
+                        borderRadius: '8px', 
+                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                        marginBottom: '10px',
                         lineHeight: '1.4'
                       }}>
-                        <strong style={{ color: '#ffffff' }}>Dirección de Entrega:</strong><br />
-                        {order.quote.client.address || "N/A"}<br />
-                        {order.quote.client.city}, {order.quote.client.state || ""} {order.quote.client.zip || ""}<br />
-                        {order.quote.client.country}<br />
-                        {order.quote.client.phone && <span style={{ display: 'inline-block', marginTop: '4px', color: 'var(--primary-sage)' }}>📞 Tel: {order.quote.client.phone}</span>}
+                        <div style={{ color: '#93c5fd', fontWeight: 700, marginBottom: '2px', fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                          📍 Destino de Entrega
+                        </div>
+                        <div>{order.quote.client.address || "Dirección no especificada"}</div>
+                        <div>{order.quote.client.city}{order.quote.client.state ? `, ${order.quote.client.state}` : ""} {order.quote.client.zip || ""}</div>
+                        {order.quote.client.phone && (
+                          <div style={{ marginTop: '4px', color: 'var(--primary-sage)', fontWeight: 600 }}>
+                            📞 {order.quote.client.phone}
+                          </div>
+                        )}
                       </div>
                     )}
                     
+                    {/* Products & Delivery Box */}
                     <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'flex-start', 
-                      gap: '6px', 
-                      fontSize: '0.8rem', 
-                      color: 'var(--text-secondary)',
-                      marginBottom: '8px'
+                      background: 'rgba(255, 255, 255, 0.03)', 
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      marginBottom: '10px'
                     }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-muted)', marginTop: '2px', flexShrink: 0 }}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-                      <span style={{ lineHeight: 1.3 }}>{itemsList}</span>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '0.8rem', color: '#e5e7eb', fontWeight: 600 }}>
+                        <span style={{ color: 'var(--primary-teal)', fontSize: '0.85rem' }}>📦</span>
+                        <span style={{ lineHeight: 1.35 }}>{itemsList}</span>
+                      </div>
+                      {order.scheduledDeliveryAt && (
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          fontSize: '0.72rem', 
+                          color: '#ff9f43',
+                          marginTop: '6px',
+                          paddingTop: '6px',
+                          borderTop: '1px dashed rgba(255, 255, 255, 0.06)',
+                          fontWeight: 600
+                        }}>
+                          <span>📅 Entrega: {new Date(order.scheduledDeliveryAt).toLocaleString('es-MX', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Fulfilling Warehouse indicator if assigned */}
-                    {order.warehouse && (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '4px', 
-                        fontSize: '0.75rem', 
-                        color: 'var(--primary-sage)',
-                        background: 'rgba(164, 189, 145, 0.05)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(164, 189, 145, 0.15)',
-                        width: 'fit-content',
-                        marginBottom: '4px'
-                      }}>
-                        <span>🏠 Bodega: {order.warehouse.name}</span>
-                      </div>
-                    )}
-
-                    {order.scheduledDeliveryAt && (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '4px', 
-                        fontSize: '0.75rem', 
-                        color: '#ff9f43',
-                        background: 'rgba(255, 159, 67, 0.05)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(255, 159, 67, 0.15)',
-                        width: 'fit-content',
-                        marginBottom: '4px'
-                      }}>
-                        <span>📅 Entrega Programada: {new Date(order.scheduledDeliveryAt).toLocaleString('es-MX', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}</span>
-                      </div>
-                    )}
-
-                    {/* Administrador Status Quick Override */}
-                    {canModify && (
-                      <div style={{ 
-                        marginTop: '8px', 
-                        marginBottom: '8px', 
-                        padding: '8px 10px', 
-                        background: 'rgba(255, 159, 67, 0.04)', 
-                        border: '1px solid rgba(255, 159, 67, 0.15)', 
-                        borderRadius: '8px' 
-                      }}>
-                        <label style={{ display: 'block', fontSize: '0.7rem', color: '#ff9f43', fontWeight: 700, marginBottom: '4px' }}>
-                          ⚙️ Cambiar Estado (Admin):
-                        </label>
-                        <select
-                          value={order.status}
-                          onChange={(e) => {
-                            const targetVal = e.target.value as any;
-                            // Si se cambia a PREPARING, se debe especificar una bodega (usamos la de la cotización como fallback)
-                            const whId = targetVal === "PREPARING" ? (order.warehouseId || order.quote.warehouseId || undefined) : undefined;
-                            handleUpdateStatus(order.id, targetVal, whId);
-                          }}
-                          disabled={updatingId === order.id}
-                          style={{
-                            width: '100%',
-                            background: 'var(--bg-app)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            padding: '4px 6px',
-                            color: '#ffffff',
-                            fontSize: '0.75rem',
-                            outline: 'none',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <option value="PENDING">⌛ Por Procesar</option>
-                          <option value="PREPARING">🔧 En Preparación</option>
-                          <option value="SHIPPED">🚚 En Camino / Enviado</option>
-                          <option value="DELIVERED">✅ Entregado</option>
-                          <option value="CANCELLED">❌ Cancelado</option>
-                        </select>
-                      </div>
-                    )}
 
                     {/* Botón de Nota de Empaque (Disponible en PREPARING, SHIPPED, DELIVERED) */}
                     {(order.status === "PREPARING" || order.status === "SHIPPED" || order.status === "DELIVERED") && (
-                      <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                      <div style={{ marginBottom: '8px' }}>
                         <a
                           href={`/pedidos/${order.id}/imprimir-nota`}
                           target="_blank"
                           rel="noreferrer"
                           style={{
-                            display: 'block',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
                             width: '100%',
                             textAlign: 'center',
-                            background: 'rgba(255, 255, 255, 0.04)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            background: 'rgba(164, 189, 145, 0.08)',
+                            border: '1px solid rgba(164, 189, 145, 0.2)',
                             borderRadius: '8px',
-                            color: '#a4bd91',
-                            padding: '6px 12px',
+                            color: 'var(--primary-sage)',
+                            padding: '6px 10px',
                             fontSize: '0.75rem',
                             fontWeight: 700,
                             textDecoration: 'none',
@@ -1055,8 +1054,52 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                             transition: 'all 0.2s ease'
                           }}
                         >
-                          📄 Nota de Empaque (Ikal)
+                          📄 Nota de Empaque
                         </a>
+                      </div>
+                    )}
+
+                    {/* Administrador Status Quick Override (Compact & Sleek) */}
+                    {canModify && (
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.06)'
+                      }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                          ⚙️ Estado:
+                        </span>
+                        <select
+                          value={order.status}
+                          onChange={(e) => {
+                            const targetVal = e.target.value as any;
+                            const whId = targetVal === "PREPARING" ? (order.warehouseId || order.quote.warehouseId || undefined) : undefined;
+                            handleUpdateStatus(order.id, targetVal, whId);
+                          }}
+                          disabled={updatingId === order.id}
+                          style={{
+                            flex: 1,
+                            background: 'rgba(0, 0, 0, 0.4)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            color: '#ffffff',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="PENDING">⌛ Por Procesar</option>
+                          <option value="PREPARING">🔧 En Preparación</option>
+                          <option value="SHIPPED">🚚 Listo / Programado</option>
+                          <option value="DELIVERED">✅ Entregado</option>
+                          <option value="CANCELLED">❌ Cancelado</option>
+                        </select>
                       </div>
                     )}
 
