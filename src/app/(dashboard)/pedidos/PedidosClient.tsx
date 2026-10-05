@@ -438,7 +438,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
             marginBottom: '8px' 
           }}>
             <span style={{ fontSize: '0.72rem', color: '#d7bde2', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-              📅 Disponibilidad para Entrega:
+              📅 {order.quote.deliveryMethod === 'RECOLECTA' ? 'Disponibilidad para Recolección:' : 'Disponibilidad para Entrega:'}
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
               <div style={{ flex: 1.2 }}>
@@ -553,7 +553,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                         cursor: 'pointer'
                       }}
                     >
-                      Listo - Entrega Programada
+                      Listo - {order.quote.deliveryMethod === "RECOLECTA" ? "Recolección Programada" : "Entrega Programada"}
                     </button>
                   </>
                 )}
@@ -638,7 +638,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                         cursor: 'pointer'
                       }}
                     >
-                      Listo - Entrega Programada
+                      Listo - {order.quote.deliveryMethod === "RECOLECTA" ? "Recolección Programada" : "Entrega Programada"}
                     </button>
                     <button
                       onClick={() => handleUpdateStatus(order.id, "CANCELLED")}
@@ -1018,7 +1018,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                           borderTop: '1px dashed rgba(255, 255, 255, 0.06)',
                           fontWeight: 600
                         }}>
-                          <span>📅 Entrega: {new Date(order.scheduledDeliveryAt).toLocaleString('es-MX', {
+                          <span>📅 {order.quote.deliveryMethod === "RECOLECTA" ? "Recolección" : "Entrega"}: {new Date(order.scheduledDeliveryAt).toLocaleString('es-MX', {
                             day: '2-digit',
                             month: 'short',
                             hour: '2-digit',

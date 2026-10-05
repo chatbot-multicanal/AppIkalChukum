@@ -218,7 +218,11 @@ export async function approveQuoteAction(quoteId: string) {
 
       // Create Order
       const deliveryDate = new Date();
-      deliveryDate.setDate(deliveryDate.getDate() + 3); // Default scheduled delivery in 3 days
+      if (quote.deliveryMethod === "RECOLECTA") {
+        // Si no se programa fecha de recolección se pone fecha actual
+      } else {
+        deliveryDate.setDate(deliveryDate.getDate() + 3); // Default scheduled delivery in 3 days para envíos
+      }
 
       await tx.order.create({
         data: {
