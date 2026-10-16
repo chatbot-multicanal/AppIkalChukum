@@ -8,6 +8,25 @@ interface PageProps {
   }>;
 }
 
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
+  const order = await db.order.findUnique({
+    where: { id },
+    include: {
+      quote: {
+        include: { client: true }
+      }
+    }
+  });
+  if (!order) return { title: "Nota de Empaque" };
+  const dateStr = new Date(order.createdAt).toISOString().split("T")[0];
+  const shortFolio = order.quote.quoteNumber.match(/COT-\d+/i)?.[0] || order.quote.quoteNumber.split("-").slice(0, 2).join("-");
+  const cleanClientName = order.quote.client.name.replace(/[/\\?%*:|"<>]/g, "").trim().slice(0, 30);
+  return {
+    title: `Nota_de_Empaque_Ikal - ${dateStr} - ${cleanClientName} - ${shortFolio}`
+  };
+}
+
 export default async function ImprimirNotaPage({ params }: PageProps) {
   const { id } = await params;
 
@@ -35,8 +54,9 @@ export default async function ImprimirNotaPage({ params }: PageProps) {
   }
 
   const dateStr = new Date(order.createdAt).toISOString().split("T")[0];
-  const cleanClientName = order.quote.client.name.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
-  const pdfTitle = `Nota_de_Empaque_Ikal - ${dateStr} - ${cleanClientName} - ${order.quote.quoteNumber}`;
+  const shortFolio = order.quote.quoteNumber.match(/COT-\d+/i)?.[0] || order.quote.quoteNumber.split("-").slice(0, 2).join("-");
+  const cleanClientName = order.quote.client.name.replace(/[/\\?%*:|"<>]/g, "").trim().slice(0, 30);
+  const pdfTitle = `Nota_de_Empaque_Ikal - ${dateStr} - ${cleanClientName} - ${shortFolio}`;
 
   return (
     <div style={{ backgroundColor: "#f3f4f6", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "30px 0" }} className="screen-bg">

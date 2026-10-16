@@ -8,6 +8,21 @@ interface PageProps {
   }>;
 }
 
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
+  const quote = await db.quote.findUnique({
+    where: { id },
+    include: { client: true }
+  });
+  if (!quote) return { title: "Cotizacion" };
+  const dateStr = new Date(quote.createdAt).toISOString().split("T")[0];
+  const shortFolio = quote.quoteNumber.match(/COT-\d+/i)?.[0] || quote.quoteNumber.split("-").slice(0, 2).join("-");
+  const cleanClientName = quote.client.name.replace(/[/\\?%*:|"<>]/g, "").trim().slice(0, 30);
+  return {
+    title: `Ikalchukum cotizacion - ${dateStr} - ${cleanClientName} - ${shortFolio}`
+  };
+}
+
 export default async function ImprimirCotizacionPage({ params }: PageProps) {
   const { id } = await params;
 
@@ -32,11 +47,11 @@ export default async function ImprimirCotizacionPage({ params }: PageProps) {
 
   const isMiami = quote.warehouse?.country === "Estados Unidos" || quote.warehouse?.name.toLowerCase().includes("miami");
 
-
   // Configurar metadatos del documento para pre-rellenar el nombre del PDF al guardar
   const dateStr = new Date(quote.createdAt).toISOString().split("T")[0];
-  const cleanClientName = quote.client.name.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
-  const pdfTitle = `Ikalchukum cotizacion - ${dateStr} - ${cleanClientName} - ${quote.quoteNumber}`;
+  const shortFolio = quote.quoteNumber.match(/COT-\d+/i)?.[0] || quote.quoteNumber.split("-").slice(0, 2).join("-");
+  const cleanClientName = quote.client.name.replace(/[/\\?%*:|"<>]/g, "").trim().slice(0, 30);
+  const pdfTitle = `Ikalchukum cotizacion - ${dateStr} - ${cleanClientName} - ${shortFolio}`;
 
   return (
     <div style={{ backgroundColor: "#f3f4f6", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "30px 0" }} className="screen-bg">
