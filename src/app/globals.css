@@ -678,6 +678,24 @@ select option {
     grid-template-columns: 1fr !important;
     gap: 20px !important;
   }
+
+  .top-nav-tabs-container {
+    padding: 16px 16px 0px 16px !important;
+  }
+
+  .sofia-desktop-contacts {
+    display: none !important;
+  }
+
+  .sofia-mobile-contacts {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .sofia-mobile-contacts {
+    display: none !important;
+  }
 }
 
 /* Sidebar navigation icon styles */

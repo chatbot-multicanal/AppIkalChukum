@@ -168,7 +168,7 @@ export default function DashboardLayout({
     }
   ].filter(item => {
     if (userRole === "BODEGA") {
-      return ["Dashboard", "Pedidos", "Inventario", "Cotizaciones"].includes(item.name);
+      return ["Dashboard", "Pedidos", "Inventario", "Cotizaciones", "Sofía IA"].includes(item.name);
     }
     if (item.name === "Respaldos" || item.name === "Finanzas") {
       return userRole === "ADMIN";

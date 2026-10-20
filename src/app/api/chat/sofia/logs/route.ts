@@ -217,6 +217,8 @@ export async function POST(request: Request) {
       current.pendingReset = true;
       current.connected = false;
       current.qr = null;
+      current.pairingCode = null;
+      current.pendingPairPhone = null;
 
       await db.systemSetting.upsert({
         where: { key: "WA_BOT_STATUS" },
@@ -225,6 +227,35 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json({ success: true, message: "Solicitud de reinicio enviada al bot" });
+    }
+
+    // Si el usuario solicita un código de vinculación de 8 dígitos desde su celular
+    if (body.action === "REQUEST_PAIRING_CODE") {
+      const rawPhone = String(body.phone || "").replace(/\D/g, "");
+      if (!rawPhone || rawPhone.length < 10) {
+        return NextResponse.json(
+          { error: "Ingresa un número válido con código de país (ej. 529991234567 o 13051234567)" },
+          { status: 400 }
+        );
+      }
+
+      const existing = await db.systemSetting.findUnique({
+        where: { key: "WA_BOT_STATUS" },
+      });
+      let current = existing?.value ? JSON.parse(existing.value) : {};
+      current.pendingPairPhone = rawPhone;
+      current.pairingCode = null;
+
+      await db.systemSetting.upsert({
+        where: { key: "WA_BOT_STATUS" },
+        update: { value: JSON.stringify(current) },
+        create: { key: "WA_BOT_STATUS", value: JSON.stringify(current) },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Generando código de 8 dígitos para tu celular...",
+      });
     }
 
     // Si el servicio de WhatsApp reporta su estado en vivo (heartbeat)

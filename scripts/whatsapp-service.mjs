@@ -84,10 +84,11 @@ let activeSocketId = 0;
 let reconnectTimer = null;
 let isShuttingDown = false;
 let latestQrDataUrl = "";
+let latestPairingCode = "";
 
 /**
- * Syncs WhatsApp bot status, QR code, and live logs to Supabase SystemSetting ("WA_BOT_STATUS")
- * so the ERP dashboard (/sofia) can display them in real time from anywhere.
+ * Syncs WhatsApp bot status, QR code, 8-digit pairing code, and live logs to Supabase SystemSetting ("WA_BOT_STATUS")
+ * so the ERP dashboard (/sofia) can display them in real time from anywhere (including mobile).
  */
 async function syncStatusToDatabase() {
   if (!dbPool || isShuttingDown) return;
@@ -104,7 +105,7 @@ async function syncStatusToDatabase() {
     }
 
     if (current.pendingReset) {
-      addLog("🔄 Reinicio de QR solicitado desde el panel ERP (/sofia)...");
+      addLog("🔄 Reinicio de sesión solicitado desde el panel ERP (/sofia)...");
       cleanupCurrentSocket();
       if (fs.existsSync(AUTH_DIR)) {
         for (const file of fs.readdirSync(AUTH_DIR)) {
@@ -115,16 +116,37 @@ async function syncStatusToDatabase() {
       }
       isWhatsAppConnected = false;
       latestQrDataUrl = "";
+      latestPairingCode = "";
       scheduleReconnect(800);
+    }
+
+    if (current.pendingPairPhone && currentSock && !isWhatsAppConnected) {
+      let cleanDigits = String(current.pendingPairPhone).replace(/\D/g, "");
+      if (cleanDigits.length === 10) {
+        cleanDigits = "52" + cleanDigits;
+      }
+      try {
+        addLog(`📲 Generando código de vinculación de 8 dígitos para el número +${cleanDigits}...`);
+        const rawCode = await currentSock.requestPairingCode(cleanDigits);
+        if (rawCode) {
+          latestPairingCode =
+            rawCode.length === 8 ? `${rawCode.slice(0, 4)}-${rawCode.slice(4)}` : rawCode;
+          addLog(`🔑 Código de vinculación móvil generado: ${latestPairingCode}`);
+        }
+      } catch (pairErr) {
+        addLog(`⚠️ Error generando código móvil (${pairErr.message}). Reintentando socket limpio...`);
+      }
     }
 
     const payload = JSON.stringify({
       connected: isWhatsAppConnected,
       qr: latestQrDataUrl || null,
+      pairingCode: isWhatsAppConnected ? null : latestPairingCode || current.pairingCode || null,
       lastConnected: lastConnectedAt || current.lastConnected || null,
       serviceLogs: logBuffer.slice(-80),
       updatedAt: new Date().toISOString(),
       pendingReset: false,
+      pendingPairPhone: null,
     });
 
     await dbPool.query(
@@ -136,7 +158,7 @@ async function syncStatusToDatabase() {
   }
 }
 
-setInterval(syncStatusToDatabase, 3000);
+setInterval(syncStatusToDatabase, 2000);
 
 /**
  * Formats Markdown output from OpenAI into clean WhatsApp formatting
@@ -248,7 +270,7 @@ async function startWhatsAppBot() {
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
     auth: state,
-    browser: ["Ikal Chukum ERP - Sofia IA", "Chrome", "1.0.0"],
+    browser: ["Ubuntu", "Chrome", "20.0.04"],
     syncFullHistory: false,
   });
 
