@@ -176,13 +176,28 @@ export default function SofiaMonitorPage() {
     }
   };
 
-  const hasPaletteMention = (text: string) => {
+  const getPaletteImageForMessage = (text: string): string | null => {
     const lower = text.toLowerCase();
-    return (
+    if (
+      lower.includes("#ik-nat-usa") ||
+      lower.includes("#ik-rosa-usa") ||
+      lower.includes("#ik-maya-usa") ||
+      lower.includes("colores de ee. uu.") ||
+      lower.includes("(estados unidos / usa)")
+    ) {
+      return "/paleta_colores_usa.jpg";
+    }
+    if (
+      lower.includes("#ik-hacienda") ||
+      lower.includes("#ik-cafe") ||
+      lower.includes("#ik-rojizo") ||
+      lower.includes("(méxico y exportación)") ||
       lower.includes("#ik-") ||
-      lower.includes("paleta oficial") ||
       lower.includes("justo aquí abajo en imagen")
-    );
+    ) {
+      return "/paleta_colores_mx.jpg";
+    }
+    return null;
   };
 
   return (
@@ -645,7 +660,7 @@ export default function SofiaMonitorPage() {
               ) : (
                 activeConversation.messages.map((msg) => {
                   const isUser = msg.role === "user";
-                  const showPalette = !isUser && hasPaletteMention(msg.content);
+                  const paletteImgSrc = !isUser ? getPaletteImageForMessage(msg.content) : null;
                   return (
                     <div
                       key={msg.id}
@@ -695,10 +710,10 @@ export default function SofiaMonitorPage() {
                       >
                         {msg.content}
 
-                        {showPalette && (
+                        {paletteImgSrc && (
                           <div style={{ marginTop: "12px" }}>
                             <img
-                              src="/paleta_colores.png"
+                              src={paletteImgSrc}
                               alt="Paleta Oficial IKAL CHUKUM"
                               style={{
                                 maxWidth: "260px",

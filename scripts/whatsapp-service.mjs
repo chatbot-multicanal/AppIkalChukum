@@ -18,6 +18,8 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 
 const AUTH_DIR = path.join(ROOT_DIR, ".whatsapp_auth");
 const PUBLIC_DIR = path.join(ROOT_DIR, "public");
+const PALETTE_USA_IMG_PATH = path.join(PUBLIC_DIR, "paleta_colores_usa.jpg");
+const PALETTE_MX_IMG_PATH = path.join(PUBLIC_DIR, "paleta_colores_mx.jpg");
 const PALETTE_IMG_PATH = path.join(PUBLIC_DIR, "paleta_colores.png");
 const QR_PNG_PATH = path.join(PUBLIC_DIR, "whatsapp-qr.png");
 const ARTIFACT_QR_PATH = "C:/Users/capys/.gemini/antigravity/brain/eac5fb3a-2d95-4aa7-b6bc-0c41e6d9bce2/whatsapp_qr.png";
@@ -422,18 +424,28 @@ async function startWhatsAppBot() {
           if (mediaUrl) {
             try {
               const activeSock = currentSock || sock;
-              if (fs.existsSync(PALETTE_IMG_PATH)) {
+              const isUsa = mediaUrl.includes("paleta_colores_usa");
+              const localImgPath = isUsa
+                ? PALETTE_USA_IMG_PATH
+                : fs.existsSync(PALETTE_MX_IMG_PATH)
+                ? PALETTE_MX_IMG_PATH
+                : PALETTE_IMG_PATH;
+              const captionText = isUsa
+                ? "🎨 Official Color Palette (USA) • IKAL CHUKUM"
+                : "🎨 Paleta Oficial de Colores • IKAL CHUKUM";
+
+              if (fs.existsSync(localImgPath)) {
                 await activeSock.sendMessage(remoteJid, {
-                  image: fs.readFileSync(PALETTE_IMG_PATH),
-                  caption: "🎨 Paleta Oficial de Colores • IKAL CHUKUM",
+                  image: fs.readFileSync(localImgPath),
+                  caption: captionText,
                 });
               } else {
                 await activeSock.sendMessage(remoteJid, {
                   image: { url: mediaUrl },
-                  caption: "🎨 Paleta Oficial de Colores • IKAL CHUKUM",
+                  caption: captionText,
                 });
               }
-              addLog(`🖼️ Imagen de paleta de colores enviada a [${phoneClean}]`);
+              addLog(`🖼️ Imagen de paleta (${isUsa ? "USA" : "México/Export"}) enviada a [${phoneClean}]`);
             } catch (imgErr) {
               addLog(`⚠️ Error enviando imagen de paleta: ${imgErr.message}`);
             }

@@ -36,58 +36,98 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
   - Revoco (cemento-arena): 4 a 6 m² por kit (usar promedio de 5 m² para calcular).
   - Masilla / Skim Coat / Stucco: 8 a 10 m² por kit (usar promedio de 9 m² para calcular).
   - Tablaroca / Drywall: 13 a 15 m² por kit (usar promedio de 14 m² para calcular).
-- Paleta de Colores: Natural (atemporal/orgánico), Azul Maya, Verde Jade, Gris, Negro, Amarillo Hacienda, Palo de Rosa, Rojo, Tierra Café, Tierra Rojizo.
-- IMPORTANTE: Cuando el cliente te pregunte qué colores tienes, qué colores manejas o te pida la paleta de colores, utiliza EXACTAMENTE la siguiente redacción, emojis y formato para responder:
+- Paleta de Colores según la ubicación del cliente:
+  - **REGLA OBLIGATORIA ANTES DE MOSTRAR COLORES**: Cuando el cliente pregunte qué colores tienes, qué tonos manejas o pida ver la paleta de colores, **PRIMERO verifica si ya sabes en qué país se encuentra su proyecto** (Estados Unidos vs. México u otro país).
+    - **Si AÚN NO sabes de dónde es el cliente**: NO envíes todavía la lista de colores ni menciones que compartes la imagen abajo. Pregúntale primero de forma cálida y elegante: *"Con mucho gusto te comparto nuestra paleta de colores. 🎨 Para mostrarte los tonos disponibles en tu región, ¿me podrías indicar en qué país o ciudad se encuentra tu proyecto (Estados Unidos, México u otro país)?"* (Si el cliente escribe en inglés: *"I would love to share our color palette with you! 🎨 To show you the exact shades available in your region, could you let me know if your project is in the United States, Mexico, or another country?"*).
+  - **CASO 1: Cliente en ESTADOS UNIDOS (USA)**:
+    - En nuestra bodega de Estados Unidos (Miami) tenemos entrega inmediata de estos **6 colores**: **Natural, Rosewood (Palo de Rosa), Red (Rojo), Grey (Gris), Mayan Blue (Azul Maya) y Jade (Verde Jade)**. (Nota: Si el cliente busca otro tono adicional de nuestro catálogo general, coméntale que también se puede exportar desde nuestra planta en México).
+    - Utiliza EXACTAMENTE este formato y códigos `#IK-...-USA` (en español o traducido al inglés si el cliente habla en inglés):
+
+    "🎨 *Nuestra Paleta de Colores IKAL CHUKUM (Estados Unidos / USA)*
+
+    Cada color transmite una personalidad única para crear espacios auténticos con disponibilidad en EE. UU.:
+
+    🤍 *Natural* 🌿
+    ✨ Timeless & organic / Atemporal y orgánico
+    #IK-NAT-USA
+
+    🩷 *Rosewood (Palo de Rosa)* 🌹
+    Delicacy & harmony / Delicadeza y armonía.
+    #IK-ROSA-USA
+
+    ❤️ *Red (Rojo)* 🔥
+    Energy & character / Energía y personalidad.
+    #IK-ROJO-USA
+
+    🩶 *Grey (Gris)* 🪨
+    Sobriety & sophistication / Sobriedad y sofisticación.
+    #IK-GRIS-USA
+
+    💙 *Mayan Blue (Azul Maya)* 🏛️
+    Inspired by the Mayan legacy / Inspirado en el legado maya.
+    #IK-MAYA-USA
+
+    💚 *Jade (Verde Jade)* 💎
+    Natural elegance & freshness / Elegancia natural y frescura.
+    #IK-JADE-USA
+
+    📖 Conoce todos los tonos y aplicaciones aquí: https://www.instagram.com/ikalchukum/
+
+    Te comparto nuestra paleta oficial de colores de EE. UU. justo aquí abajo en imagen: 👇"
+
+  - **CASO 2: Cliente en MÉXICO o CUALQUIER OTRO PAÍS (Exportación Internacional)**:
+    - Para proyectos en México y envíos de exportación a otros países manejamos la **paleta completa de 10 colores**: **Natural, Palo de Rosa, Rojo, Amarillo Hacienda, Gris, Azul Maya, Verde Jade, Terra Café, Terra Rojizo y Negro**.
+    - Utiliza EXACTAMENTE la siguiente redacción, emojis y códigos `#IK-...`:
   
-  "🎨 *Nuestra Paleta de Colores IKAL CHUKUM*
+    "🎨 *Nuestra Paleta de Colores IKAL CHUKUM (México y Exportación)*
 
-  Cada color transmite una personalidad única para crear espacios auténticos.
+    Cada color transmite una personalidad única para crear espacios auténticos.
 
-  🤍 *Natural* 🌿
-  ✨ Atemporal y orgánico
-  #IK-NAT
+    🤍 *Natural* 🌿
+    ✨ Atemporal y orgánico
+    #IK-NAT
 
-  💙 *Azul Maya* 🏛️
-  Inspirado en el legado maya.
-  #IK-MAYA
+    🩷 *Palo de Rosa* 🌹
+    Delicadeza y armonía.
+    #IK-ROSA
 
-  💚 *Verde Jade* 💎
-  Elegancia natural y frescura.
-  #IK-JADE
+    ❤️ *Rojo* 🔥
+    Energía y personalidad.
+    #IK-ROJO
 
-  🩶 *Gris* 🪨
-  Sobriedad y sofisticación.
-  #IK-GRIS
+    💛 *Amarillo Hacienda* ☀️
+    Calidez y tradición.
+    #IK-HACIENDA
 
-  🖤 *Negro* ⛰️
-  Profundidad y carácter.
-  #IK-NEGRO
+    🩶 *Gris* 🪨
+    Sobriedad y sofisticación.
+    #IK-GRIS
 
-  💛 *Amarillo Hacienda* ☀️
-  Calidez y tradición.
-  #IK-HACIENDA
+    💙 *Azul Maya* 🏛️
+    Inspirado en el legado maya.
+    #IK-MAYA
 
-  🩷 *Palo de Rosa* 🌹
-  Delicadeza y armonía.
-  #IK-ROSA
+    💚 *Verde Jade* 💎
+    Elegancia natural y frescura.
+    #IK-JADE
 
-  ❤️ *Rojo* 🔥
-  Energía y personalidad.
-  #IK-ROJO
+    🤎 *Terra Café* 🍂
+    Conexión con la naturaleza.
+    #IK-CAFE
 
-  🤎 *Tierra Café* 🍂
-  Conexión con la naturaleza.
-  #IK-CAFE
+    🧡 *Terra Rojizo* 🏺
+    Calidez artesanal.
+    #IK-ROJIZO
 
-  🧡 *Tierra Rojizo* 🏺
-  Calidez artesanal.
-  #IK-ROJIZO
+    🖤 *Negro* ⛰️
+    Profundidad y carácter.
+    #IK-NEGRO
 
-  📖 Conoce todos los tonos y aplicaciones aquí: https://www.instagram.com/ikalchukum/
+    📖 Conoce todos los tonos y aplicaciones aquí: https://www.instagram.com/ikalchukum/
 
-  Te comparto nuestra paleta oficial de colores justo aquí abajo en imagen: 👇"
+    Te comparto nuestra paleta oficial de colores justo aquí abajo en imagen: 👇"
   
-  (Nota: NO incluyas ningún otro enlace de imagen o archivo en tu texto, ya que la imagen física de la paleta se enviará de forma automática abajo mediante el sistema).
+  (Nota: NO incluyas ningún otro enlace de imagen o archivo en tu texto, ya que la imagen física correspondiente a su región se enviará de forma automática abajo mediante el sistema).
 
 ### PROCESO DE APLICACIÓN Y SOPORTE:
 - La superficie debe estar completamente limpia, seca, libre de polvo, grasa o humedad previa.
@@ -758,20 +798,28 @@ export async function POST(request: Request) {
       console.error("Failed to log success:", dbErr);
     }
 
-    // Detectar si la respuesta presenta explícitamente la paleta de colores para proveer el mediaUrl
+    // Detectar si la respuesta presenta explícitamente la paleta de colores (EE. UU. vs México/Exportación)
     let mediaUrl = "";
     const lowerReply = choice.message.content.toLowerCase();
-    const isExplicitPalettePresentation = 
-      lowerReply.includes("#ik-") || 
-      lowerReply.includes("paleta oficial") || 
-      lowerReply.includes("aquí tienes la paleta") || 
-      lowerReply.includes("te comparto la paleta") ||
-      lowerReply.includes("aquí tienes nuestra paleta") ||
-      lowerReply.includes("te comparto nuestra paleta") ||
-      lowerReply.includes("justo aquí abajo en imagen");
+    const isUsaPalette =
+      lowerReply.includes("#ik-nat-usa") ||
+      lowerReply.includes("#ik-rosa-usa") ||
+      lowerReply.includes("#ik-maya-usa") ||
+      lowerReply.includes("colores de ee. uu.") ||
+      lowerReply.includes("(estados unidos / usa)");
 
-    if (isExplicitPalettePresentation) {
-      mediaUrl = "https://app.ikalchukum.com/paleta_colores.png";
+    const isMxOrExportPalette =
+      lowerReply.includes("#ik-hacienda") ||
+      lowerReply.includes("#ik-cafe") ||
+      lowerReply.includes("#ik-rojizo") ||
+      lowerReply.includes("(méxico y exportación)") ||
+      (lowerReply.includes("#ik-") && !isUsaPalette) ||
+      (lowerReply.includes("justo aquí abajo en imagen") && !isUsaPalette);
+
+    if (isUsaPalette) {
+      mediaUrl = "https://app.ikalchukum.com/paleta_colores_usa.jpg";
+    } else if (isMxOrExportPalette) {
+      mediaUrl = "https://app.ikalchukum.com/paleta_colores_mx.jpg";
     }
 
     // Retornar la respuesta final en formato JSON
