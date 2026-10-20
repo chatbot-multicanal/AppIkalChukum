@@ -14,6 +14,7 @@ const SEGMENTS: Record<string, { color: string; bg: string }> = {
   "/inventario": { color: "#5F8C74", bg: "#111915" },  // Inventario (Verde profundo #5F8C74 -> #111915)
   "/comisiones": { color: "#C3A15E", bg: "#1B1811" },  // Comisiones (Dorado apagado #C3A15E -> #1B1811)
   "/finanzas": { color: "#4FAF8A", bg: "#101916" },    // Finanzas (Esmeralda #4FAF8A -> #101916)
+  "/sofia": { color: "#2DD4BF", bg: "#0E1818" },       // Sofía IA / Chat en Vivo (Turquesa Esmeralda #2DD4BF -> #0E1818)
   "/respaldos": { color: "#74828C", bg: "#141719" }    // Respaldos (Gris azulado #74828C -> #141719)
 };
 
@@ -24,6 +25,7 @@ const getSegmentConfig = (path: string) => {
   if (path.startsWith("/inventario")) return SEGMENTS["/inventario"];
   if (path.startsWith("/comisiones")) return SEGMENTS["/comisiones"];
   if (path.startsWith("/finanzas")) return SEGMENTS["/finanzas"];
+  if (path.startsWith("/sofia")) return SEGMENTS["/sofia"];
   if (path.startsWith("/respaldos")) return SEGMENTS["/respaldos"];
   return SEGMENTS["/"];
 };
@@ -36,6 +38,7 @@ const TAB_IMAGES: Record<string, string> = {
   "Inventario": "/tab-inventario.png",
   "Comisiones": "/tab-comisiones.png",
   "Finanzas": "/tab-finanzas.png",
+  "Sofía IA": "/tab-clientes.png",
   "Respaldos": "/tab-respaldos.png"
 };
 
@@ -147,6 +150,13 @@ export default function DashboardLayout({
       path: "/finanzas",
       icon: (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      )
+    },
+    {
+      name: "Sofía IA",
+      path: "/sofia",
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
       )
     },
     {
