@@ -171,8 +171,9 @@ export async function POST(request: Request) {
     }
 
     const { message, phone, conversationHistory = [] } = body;
-    // Extraer identificadores del contacto en ManyChat
-    const contactId = body.contact_id || body.user_id || body.subscriber_id || body.id || null;
+    // Extraer identificadores del contacto ignorando placeholders vacíos de ManyChat
+    const rawContactId = body.contact_id || body.user_id || body.subscriber_id || body.id || null;
+    const contactId = rawContactId && rawContactId !== "{{phone}}" ? rawContactId : null;
 
     if (!message) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
@@ -781,6 +782,128 @@ export async function POST(request: Request) {
       choice = responseData.choices[0];
     }
 
+    let finalReply: string = choice.message.content || "";
+
+    // Candado programático estricto para Paleta de Colores por País (EE. UU. vs México/Exportación)
+    const userMsgLower = String(message).toLowerCase();
+    const historyUserText = activeHistory
+      .filter((m: any) => m.role === "user")
+      .map((m: any) => String(m.content).toLowerCase())
+      .join(" ");
+    const lastAssistantMsg = [...activeHistory]
+      .reverse()
+      .find((m: any) => m.role === "assistant")?.content?.toLowerCase() || "";
+
+    const usaRegex = /\b(estados unidos|ee\.?\s*uu|united states|usa|u\.s\.a|miami|florida|texas|california|new york|houston|dallas|orlando|atlanta|chicago|arizona|nevada|los angeles)\b/i;
+    const mxOrOtherRegex = /\b(m[eé]xico|merida|m[eé]rida|canc[uú]n|tulum|playa del carmen|cdmx|ciudad de m[eé]xico|monterrey|guadalajara|quer[eé]taro|puebla|yucat[aá]n|quintana roo|los cabos|tijuana|oaxaca|veracruz|espa[ñn]a|colombia|costa rica|panam[aá]|rep[uú]blica dominicana|puerto rico|canad[aá]|chile|per[uú]|argentina|guatemala|exportaci[oó]n|exportar|otro pa[ií]s)\b/i;
+
+    const asksColorsNow = /\b(color|colores|tonos|paleta|colors|shades|palette)\b/i.test(userMsgLower);
+    const prevAssistantAskedCountryForColors =
+      lastAssistantMsg.includes("en qué país o ciudad se encuentra tu proyecto") ||
+      lastAssistantMsg.includes("tonos disponibles en tu región") ||
+      lastAssistantMsg.includes("shades available in your region");
+
+    const combinedUserContext = `${historyUserText} ${userMsgLower}`;
+    const hasUsaInContext = usaRegex.test(userMsgLower) || (!mxOrOtherRegex.test(userMsgLower) && usaRegex.test(combinedUserContext));
+    const hasMxOrOtherInContext = mxOrOtherRegex.test(userMsgLower) || (!usaRegex.test(userMsgLower) && mxOrOtherRegex.test(combinedUserContext));
+
+    const USA_PALETTE_TEXT_ES = `🎨 *Nuestra Paleta de Colores IKAL CHUKUM (Estados Unidos / USA)*
+
+Cada color transmite una personalidad única para crear espacios auténticos con disponibilidad inmediata en nuestra bodega de EE. UU. (Miami):
+
+🤍 *Natural* 🌿
+✨ Atemporal y orgánico
+#IK-NAT-USA
+
+🩷 *Rosewood (Palo de Rosa)* 🌹
+Delicadeza y armonía.
+#IK-ROSA-USA
+
+❤️ *Red (Rojo)* 🔥
+Energía y personalidad.
+#IK-ROJO-USA
+
+🩶 *Grey (Gris)* 🪨
+Sobriedad y sofisticación.
+#IK-GRIS-USA
+
+💙 *Mayan Blue (Azul Maya)* 🏛️
+Inspirado en el legado maya.
+#IK-MAYA-USA
+
+💚 *Jade (Verde Jade)* 💎
+Elegancia natural y frescura.
+#IK-JADE-USA
+
+*(Si requieres algún otro tono adicional de nuestro catálogo general, también podemos exportarlo desde nuestra planta en México).*
+
+📖 Conoce todos los tonos y aplicaciones aquí: https://www.instagram.com/ikalchukum/
+
+Te comparto nuestra paleta oficial de colores de EE. UU. justo aquí abajo en imagen: 👇`;
+
+    const MX_PALETTE_TEXT_ES = `🎨 *Nuestra Paleta de Colores IKAL CHUKUM (México y Exportación)*
+
+Cada color transmite una personalidad única para crear espacios auténticos:
+
+🤍 *Natural* 🌿
+✨ Atemporal y orgánico
+#IK-NAT
+
+🩷 *Palo de Rosa* 🌹
+Delicadeza y armonía.
+#IK-ROSA
+
+❤️ *Rojo* 🔥
+Energía y personalidad.
+#IK-ROJO
+
+💛 *Amarillo Hacienda* ☀️
+Calidez y tradición.
+#IK-HACIENDA
+
+🩶 *Gris* 🪨
+Sobriedad y sofisticación.
+#IK-GRIS
+
+💙 *Azul Maya* 🏛️
+Inspirado en el legado maya.
+#IK-MAYA
+
+💚 *Verde Jade* 💎
+Elegancia natural y frescura.
+#IK-JADE
+
+🤎 *Terra Café* 🍂
+Conexión con la naturaleza.
+#IK-CAFE
+
+🧡 *Terra Rojizo* 🏺
+Calidez artesanal.
+#IK-ROJIZO
+
+🖤 *Negro* ⛰️
+Profundidad y carácter.
+#IK-NEGRO
+
+📖 Conoce todos los tonos y aplicaciones aquí: https://www.instagram.com/ikalchukum/
+
+Te comparto nuestra paleta oficial de colores justo aquí abajo en imagen: 👇`;
+
+    if (asksColorsNow && !hasUsaInContext && !hasMxOrOtherInContext) {
+      const isEnglish = /\b(colors|shades|palette|what|which|hello|hi)\b/i.test(userMsgLower) && !/\b(hola|colores|tonos|paleta|quiero|saber)\b/i.test(userMsgLower);
+      finalReply = isEnglish
+        ? "✨ Hello! I am Sofía, advisor for *IKAL CHUKUM*. 🏛️ I would love to share our color palette with you! 🎨 To show you the exact shades available in your region, could you please tell me if your project is located in the *United States*, *Mexico*, or *another country*?"
+        : "✨ ¡Con mucho gusto te comparto nuestros tonos de Chukum! 🎨 Para mostrarte la paleta de colores exacta disponible en tu región, ¿me podrías indicar en qué país o ciudad se encuentra tu proyecto (*Estados Unidos*, *México* u *otro país*)?";
+    } else if ((asksColorsNow || prevAssistantAskedCountryForColors) && usaRegex.test(userMsgLower)) {
+      finalReply = USA_PALETTE_TEXT_ES;
+    } else if ((asksColorsNow || prevAssistantAskedCountryForColors) && mxOrOtherRegex.test(userMsgLower)) {
+      finalReply = MX_PALETTE_TEXT_ES;
+    } else if (asksColorsNow && hasUsaInContext) {
+      finalReply = USA_PALETTE_TEXT_ES;
+    } else if (asksColorsNow && hasMxOrOtherInContext) {
+      finalReply = MX_PALETTE_TEXT_ES;
+    }
+
     // Log success
     try {
       await db.auditLog.create({
@@ -790,7 +913,7 @@ export async function POST(request: Request) {
           action: "LOG",
           details: JSON.stringify({
             request: { message, phone, contactId },
-            reply: choice.message.content
+            reply: finalReply
           })
         }
       });
@@ -800,7 +923,7 @@ export async function POST(request: Request) {
 
     // Detectar si la respuesta presenta explícitamente la paleta de colores (EE. UU. vs México/Exportación)
     let mediaUrl = "";
-    const lowerReply = choice.message.content.toLowerCase();
+    const lowerReply = finalReply.toLowerCase();
     const isUsaPalette =
       lowerReply.includes("#ik-nat-usa") ||
       lowerReply.includes("#ik-rosa-usa") ||
@@ -825,7 +948,7 @@ export async function POST(request: Request) {
     // Retornar la respuesta final en formato JSON
     return NextResponse.json({
       success: true,
-      reply: choice.message.content,
+      reply: finalReply,
       mediaUrl,
       sofia_alerta_admin: sofiaAlertaAdmin
     });

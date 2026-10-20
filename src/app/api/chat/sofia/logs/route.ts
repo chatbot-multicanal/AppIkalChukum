@@ -107,6 +107,10 @@ export async function GET() {
         }
 
         if (userMsg || botReply) {
+          // Omitir pruebas antiguas de ManyChat donde el teléfono era literal "{{phone}}"
+          if (String(rawPhone).trim() === "{{phone}}") {
+            continue;
+          }
           const contactKey = cleanDigits || String(rawPhone);
           if (!conversationsMap.has(contactKey)) {
             conversationsMap.set(contactKey, {

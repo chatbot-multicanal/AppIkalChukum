@@ -105,6 +105,12 @@ export default function SofiaMonitorPage() {
 
   const activeConversation = conversations.find((c) => c.contactKey === selectedContactKey) || null;
 
+  useEffect(() => {
+    setTimeout(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  }, [selectedContactKey]);
+
   const filteredConversations = conversations.filter((c) => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -708,7 +714,7 @@ export default function SofiaMonitorPage() {
                           boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
                         }}
                       >
-                        {msg.content}
+                        {msg.content.replace(/\*\*([^*]+)\*\*/g, "*$1*")}
 
                         {paletteImgSrc && (
                           <div style={{ marginTop: "12px" }}>
