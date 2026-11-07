@@ -1,5 +1,10 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import {
+  ensureCloudWhatsAppEngine,
+  resetCloudWhatsAppSession,
+  requestCloudPairingCode,
+} from "@/lib/whatsappCloudEngine";
 
 export const dynamic = "force-dynamic";
 
@@ -171,7 +176,7 @@ export async function GET() {
       (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
     );
 
-    // 4. Obtener estado del conector WhatsApp desde SystemSetting
+    // 4. Asegurar que el motor WhatsApp en la nube esté activo y obtener su estado en tiempo real
     let waStatus: any = {
       connected: false,
       qr: null,
@@ -181,13 +186,17 @@ export async function GET() {
     };
 
     try {
-      const waSetting = await db.systemSetting.findUnique({
-        where: { key: "WA_BOT_STATUS" },
-      });
-      if (waSetting?.value) {
-        waStatus = JSON.parse(waSetting.value);
-      }
-    } catch {}
+      waStatus = await ensureCloudWhatsAppEngine(5500);
+    } catch {
+      try {
+        const waSetting = await db.systemSetting.findUnique({
+          where: { key: "WA_BOT_STATUS" },
+        });
+        if (waSetting?.value) {
+          waStatus = JSON.parse(waSetting.value);
+        }
+      } catch {}
+    }
 
     return NextResponse.json({
       success: true,
@@ -208,25 +217,14 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Si la interfaz solicita resetear el QR de WhatsApp
+    // Si la interfaz solicita resetear el QR de WhatsApp directamente desde el servidor
     if (body.action === "REQUEST_RESET") {
-      const existing = await db.systemSetting.findUnique({
-        where: { key: "WA_BOT_STATUS" },
+      const waStatus = await resetCloudWhatsAppSession();
+      return NextResponse.json({
+        success: true,
+        message: "Nuevo código QR generado desde el servidor en la nube",
+        waStatus,
       });
-      let current = existing?.value ? JSON.parse(existing.value) : {};
-      current.pendingReset = true;
-      current.connected = false;
-      current.qr = null;
-      current.pairingCode = null;
-      current.pendingPairPhone = null;
-
-      await db.systemSetting.upsert({
-        where: { key: "WA_BOT_STATUS" },
-        update: { value: JSON.stringify(current) },
-        create: { key: "WA_BOT_STATUS", value: JSON.stringify(current) },
-      });
-
-      return NextResponse.json({ success: true, message: "Solicitud de reinicio enviada al bot" });
     }
 
     // Si el usuario solicita un código de vinculación de 8 dígitos desde su celular
@@ -239,22 +237,12 @@ export async function POST(request: Request) {
         );
       }
 
-      const existing = await db.systemSetting.findUnique({
-        where: { key: "WA_BOT_STATUS" },
-      });
-      let current = existing?.value ? JSON.parse(existing.value) : {};
-      current.pendingPairPhone = rawPhone;
-      current.pairingCode = null;
-
-      await db.systemSetting.upsert({
-        where: { key: "WA_BOT_STATUS" },
-        update: { value: JSON.stringify(current) },
-        create: { key: "WA_BOT_STATUS", value: JSON.stringify(current) },
-      });
-
+      const { pairingCode, waStatus } = await requestCloudPairingCode(rawPhone);
       return NextResponse.json({
         success: true,
-        message: "Generando código de 8 dígitos para tu celular...",
+        pairingCode,
+        waStatus,
+        message: "Código de 8 dígitos generado desde el servidor",
       });
     }
 

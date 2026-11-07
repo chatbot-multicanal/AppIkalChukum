@@ -199,7 +199,13 @@ export default function SofiaMonitorPage() {
         alert(err.error || "No se pudo solicitar el código");
         setIsRequestingPairCode(false);
       } else {
-        setTimeout(fetchMonitorData, 2000);
+        const data = await res.json().catch(() => ({}));
+        if (data.waStatus) {
+          setWaStatus(data.waStatus);
+          setIsRequestingPairCode(false);
+        } else {
+          setTimeout(fetchMonitorData, 1500);
+        }
       }
     } catch {
       setIsRequestingPairCode(false);
@@ -218,15 +224,20 @@ export default function SofiaMonitorPage() {
       return;
     setIsResettingQr(true);
     try {
-      await fetch("/api/chat/sofia/logs", {
+      const res = await fetch("/api/chat/sofia/logs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "REQUEST_RESET" }),
       });
-      setTimeout(() => {
-        fetchMonitorData();
-        setIsResettingQr(false);
-      }, 2500);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.waStatus) {
+          setWaStatus(data.waStatus);
+        } else {
+          await fetchMonitorData();
+        }
+      }
+      setIsResettingQr(false);
     } catch {
       setIsResettingQr(false);
     }
