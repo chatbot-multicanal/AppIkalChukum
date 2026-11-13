@@ -179,10 +179,37 @@ export async function GET() {
     }
 
     // Ordenar conversaciones por actividad más reciente y marcar cuáles están en pausa
-    const [pausedChats, notificationConfig] = await Promise.all([
+    const [pausedChats, notificationConfig, rawAlertLogs] = await Promise.all([
       getPausedChats(),
       getWaNotificationConfig(),
+      db.auditLog.findMany({
+        where: { entity: "SofiaOrderAlert" },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
     ]);
+
+    const orderAlerts = rawAlertLogs.map((row) => {
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(row.details || "{}");
+      } catch {}
+      return {
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        eventType: parsed.eventType || row.action,
+        quoteNumber: parsed.quoteNumber || row.entityId,
+        clientName: parsed.clientName || "Cliente",
+        clientPhone: parsed.clientPhone || null,
+        warehouseName: parsed.warehouseName || "Bodega",
+        deliveryMethod: parsed.deliveryMethod || null,
+        scheduledFormatted: parsed.scheduledFormatted || null,
+        itemsSummary: parsed.itemsSummary || null,
+        clientMessage: parsed.clientMessage || null,
+        teamMessage: parsed.teamMessage || null,
+        recipients: Array.isArray(parsed.recipients) ? parsed.recipients : [],
+      };
+    });
 
     const conversations = Array.from(conversationsMap.values())
       .map((conv) => {
@@ -224,6 +251,7 @@ export async function GET() {
       conversations,
       pausedChats,
       notificationConfig,
+      orderAlerts,
       logs: formattedLogs.reverse(),
       waStatus,
     });

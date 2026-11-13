@@ -52,10 +52,27 @@ interface WaNotificationConfig {
   notifyOnDelivered: boolean;
 }
 
+interface OrderAlertEntry {
+  id: string;
+  createdAt: string;
+  eventType: string;
+  quoteNumber: string;
+  clientName: string;
+  clientPhone: string | null;
+  warehouseName: string;
+  deliveryMethod: string | null;
+  scheduledFormatted: string | null;
+  itemsSummary: string | null;
+  clientMessage: string | null;
+  teamMessage: string | null;
+  recipients: string[];
+}
+
 export default function SofiaMonitorPage() {
   const [activeSubTab, setActiveSubTab] = useState<"chat" | "qr" | "alerts" | "logs">("chat");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [orderAlerts, setOrderAlerts] = useState<OrderAlertEntry[]>([]);
   const [waStatus, setWaStatus] = useState<WaStatus>({
     connected: false,
     qr: null,
@@ -104,6 +121,7 @@ export default function SofiaMonitorPage() {
         const data = await res.json();
         setConversations(data.conversations || []);
         setLogs(data.logs || []);
+        setOrderAlerts(data.orderAlerts || []);
         if (data.waStatus) {
           setWaStatus(data.waStatus);
           if (data.waStatus.pairingCode) {
@@ -568,7 +586,7 @@ export default function SofiaMonitorPage() {
             transition: "all 0.2s ease",
           }}
         >
-          🔔 Avisos Pedidos
+          🔔 Avisos Pedidos ({orderAlerts.length})
         </button>
 
         <button
@@ -1377,6 +1395,231 @@ export default function SofiaMonitorPage() {
               {isSavingNotif ? "Guardando..." : "💾 Guardar Configuración de Avisos"}
             </button>
           </form>
+
+          {/* HISTORIAL DE AVISOS DE PEDIDOS ENVIADOS (CLIENTES Y EQUIPO) */}
+          <div style={{ marginTop: "32px", paddingTop: "24px", borderTop: "1px solid var(--border-color)" }}>
+            <h3 style={{ fontSize: "1.08rem", fontWeight: 800, color: "#fff", marginTop: 0, marginBottom: "6px" }}>
+              📬 Registro de Avisos de Pedidos Enviados ({orderAlerts.length})
+            </h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", marginBottom: "16px" }}>
+              Aquí puedes ver tanto el mensaje personalizado que se envió al <strong>Cliente</strong> como el reporte enviado al <strong>Equipo Interno</strong> (Grupo Miami, Winer y Socios). Además, los mensajes enviados al cliente también aparecen dentro de su conversación en la pestaña <strong>💬 Chat</strong>.
+            </p>
+
+            {orderAlerts.length === 0 ? (
+              <div
+                style={{
+                  padding: "24px",
+                  borderRadius: "12px",
+                  background: "rgba(0,0,0,0.25)",
+                  border: "1px dashed var(--border-color)",
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  fontSize: "0.85rem",
+                }}
+              >
+                Aún no hay avisos de pedidos registrados.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {orderAlerts.map((alertItem) => {
+                  const badgeMap: Record<string, { label: string; color: string; bg: string }> = {
+                    NEW_ORDER: {
+                      label: "📦 Nuevo Pedido por Surtir",
+                      color: "#fbbf24",
+                      bg: "rgba(245, 158, 11, 0.16)",
+                    },
+                    ACKNOWLEDGED: {
+                      label: "✅ Confirmado de Recibido en Bodega",
+                      color: "#38bdf8",
+                      bg: "rgba(56, 189, 248, 0.16)",
+                    },
+                    PREPARING: {
+                      label: "🔧 En Preparación por Bodega",
+                      color: "#38bdf8",
+                      bg: "rgba(56, 189, 248, 0.16)",
+                    },
+                    SHIPPED: {
+                      label:
+                        alertItem.deliveryMethod === "RECOLECTA"
+                          ? "🕒 Listo / Hora de Recolecta Programada"
+                          : "🚚 Pedido en Camino / Enviado",
+                      color: "#c084fc",
+                      bg: "rgba(192, 132, 252, 0.16)",
+                    },
+                    DELIVERED: {
+                      label: "🏁 Pedido Entregado",
+                      color: "#34d399",
+                      bg: "rgba(16, 185, 129, 0.16)",
+                    },
+                  };
+                  const badge = badgeMap[alertItem.eventType] || {
+                    label: alertItem.eventType,
+                    color: "#5eead4",
+                    bg: "rgba(45, 212, 191, 0.15)",
+                  };
+
+                  return (
+                    <div
+                      key={alertItem.id}
+                      style={{
+                        padding: "16px",
+                        borderRadius: "14px",
+                        background: "rgba(0, 0, 0, 0.35)",
+                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <span
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: "20px",
+                              fontSize: "0.75rem",
+                              fontWeight: 800,
+                              color: badge.color,
+                              background: badge.bg,
+                              border: `1px solid ${badge.color}44`,
+                            }}
+                          >
+                            {badge.label}
+                          </span>
+                          <span style={{ fontWeight: 800, color: "#fff", fontSize: "0.88rem" }}>
+                            {alertItem.quoteNumber}
+                          </span>
+                          <span style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>
+                            • Cliente: <strong style={{ color: "#fff" }}>{alertItem.clientName}</strong>
+                            {alertItem.clientPhone ? ` (${alertItem.clientPhone})` : ""}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          {new Date(alertItem.createdAt).toLocaleString("es-MX", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      </div>
+
+                      {alertItem.recipients && alertItem.recipients.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {alertItem.recipients.map((rec, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                fontSize: "0.72rem",
+                                padding: "3px 8px",
+                                borderRadius: "6px",
+                                background: rec.startsWith("Cliente:")
+                                  ? "rgba(16, 185, 129, 0.15)"
+                                  : "rgba(255, 255, 255, 0.06)",
+                                color: rec.startsWith("Cliente:") ? "#34d399" : "var(--text-secondary)",
+                                border: rec.startsWith("Cliente:")
+                                  ? "1px solid rgba(16, 185, 129, 0.35)"
+                                  : "1px solid rgba(255, 255, 255, 0.08)",
+                                fontWeight: 600,
+                              }}
+                            >
+                              ✓ {rec}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            alertItem.clientMessage && alertItem.teamMessage ? "1fr 1fr" : "1fr",
+                          gap: "10px",
+                        }}
+                        className="grid-responsive"
+                      >
+                        {alertItem.clientMessage && (
+                          <div
+                            style={{
+                              padding: "12px",
+                              borderRadius: "10px",
+                              background: "rgba(16, 185, 129, 0.07)",
+                              border: "1px solid rgba(16, 185, 129, 0.25)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "0.74rem",
+                                fontWeight: 800,
+                                color: "#34d399",
+                                marginBottom: "6px",
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              👤 Mensaje enviado al Cliente ({alertItem.clientName})
+                            </div>
+                            <pre
+                              style={{
+                                margin: 0,
+                                whiteSpace: "pre-wrap",
+                                fontFamily: "inherit",
+                                fontSize: "0.78rem",
+                                color: "#e5e7eb",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {alertItem.clientMessage}
+                            </pre>
+                          </div>
+                        )}
+
+                        {alertItem.teamMessage && (
+                          <div
+                            style={{
+                              padding: "12px",
+                              borderRadius: "10px",
+                              background: "rgba(29, 128, 136, 0.08)",
+                              border: "1px solid rgba(45, 212, 191, 0.22)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "0.74rem",
+                                fontWeight: 800,
+                                color: "#5eead4",
+                                marginBottom: "6px",
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              👥 Reporte enviado al Equipo Interno
+                            </div>
+                            <pre
+                              style={{
+                                margin: 0,
+                                whiteSpace: "pre-wrap",
+                                fontFamily: "inherit",
+                                fontSize: "0.78rem",
+                                color: "#e5e7eb",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {alertItem.teamMessage}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

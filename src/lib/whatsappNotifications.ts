@@ -194,6 +194,10 @@ export async function notifyOrderWhatsAppEvent(
     const config = await getWaNotificationConfig();
     const isMiami = orderData.warehouseName.toLowerCase().includes("miami");
     const targets: Array<{ target: string; text: string }> = [];
+    let loggedClientPhone = "";
+    let loggedClientMsg = "";
+    let loggedTeamMsg = "";
+    const recipientLabels: string[] = [];
 
     const deliveryLabel =
       orderData.deliveryMethod === "RECOLECTA" ? "Recolecta en Bodega" : "Envío a Domicilio";
@@ -215,17 +219,29 @@ export async function notifyOrderWhatsAppEvent(
         `• *Modalidad:* ${deliveryLabel}\n` +
         (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
         `\n👉 Por favor ingresa a https://app.ikalchukum.com/pedidos para confirmar de recibido ("Dar por enterado") e iniciar preparación.`;
+      loggedTeamMsg = msg;
 
       if (isMiami) {
-        if (config.winerPhone) targets.push({ target: config.winerPhone, text: msg });
+        if (config.winerPhone) {
+          targets.push({ target: config.winerPhone, text: msg });
+          recipientLabels.push(`Winer (${config.winerPhone})`);
+        }
         if (config.miamiGroupJid) {
           targets.push({ target: config.miamiGroupJid, text: msg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName || "Oficina Miami"})`);
         } else if (config.miamiGroupName) {
           targets.push({ target: `GROUP_NAME:${config.miamiGroupName}`, text: msg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName})`);
         }
       }
-      if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: msg });
-      if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: msg });
+      if (config.ownerPhone1) {
+        targets.push({ target: config.ownerPhone1, text: msg });
+        recipientLabels.push(`Socio 1 (${config.ownerPhone1})`);
+      }
+      if (config.ownerPhone2) {
+        targets.push({ target: config.ownerPhone2, text: msg });
+        recipientLabels.push(`Socio 2 (${config.ownerPhone2})`);
+      }
     } else if (
       (eventType === "ACKNOWLEDGED" || eventType === "PREPARING") &&
       config.notifyOnAcknowledge
@@ -237,17 +253,29 @@ export async function notifyOrderWhatsAppEvent(
         `• *Bodega:* ${orderData.warehouseName}\n` +
         (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
         `• *Estado:* Confirmado de recibido / En preparación por bodega.`;
+      loggedTeamMsg = msg;
 
       if (isMiami) {
-        if (config.winerPhone) targets.push({ target: config.winerPhone, text: msg });
+        if (config.winerPhone) {
+          targets.push({ target: config.winerPhone, text: msg });
+          recipientLabels.push(`Winer (${config.winerPhone})`);
+        }
         if (config.miamiGroupJid) {
           targets.push({ target: config.miamiGroupJid, text: msg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName || "Oficina Miami"})`);
         } else if (config.miamiGroupName) {
           targets.push({ target: `GROUP_NAME:${config.miamiGroupName}`, text: msg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName})`);
         }
       }
-      if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: msg });
-      if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: msg });
+      if (config.ownerPhone1) {
+        targets.push({ target: config.ownerPhone1, text: msg });
+        recipientLabels.push(`Socio 1 (${config.ownerPhone1})`);
+      }
+      if (config.ownerPhone2) {
+        targets.push({ target: config.ownerPhone2, text: msg });
+        recipientLabels.push(`Socio 2 (${config.ownerPhone2})`);
+      }
     } else if (eventType === "SHIPPED" && config.notifyOnShippedOrPickup) {
       const isRecolecta = orderData.deliveryMethod === "RECOLECTA";
       const rawClientDigits = String(orderData.clientPhone || "").replace(/\D/g, "");
@@ -299,6 +327,9 @@ export async function notifyOrderWhatsAppEvent(
             `\n¡Gracias por tu preferencia en *IKAL CHUKUM*!`;
         }
         targets.push({ target: cleanClientPhone, text: clientMsg });
+        loggedClientPhone = cleanClientPhone;
+        loggedClientMsg = clientMsg;
+        recipientLabels.push(`Cliente: ${orderData.clientName} (${cleanClientPhone})`);
       }
 
       // 2. Aviso interno al equipo (Grupo Miami, Winer y Socios)
@@ -318,17 +349,29 @@ export async function notifyOrderWhatsAppEvent(
           (formattedSchedule ? `• *Fecha programada:* ${formattedSchedule}\n` : "") +
           (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
           `• *Aviso al cliente:* ${cleanClientPhone.length >= 10 ? "Enviado por WhatsApp ✅" : "Cliente sin teléfono registrado"}`;
+      loggedTeamMsg = teamMsg;
 
       if (isMiami) {
-        if (config.winerPhone) targets.push({ target: config.winerPhone, text: teamMsg });
+        if (config.winerPhone) {
+          targets.push({ target: config.winerPhone, text: teamMsg });
+          recipientLabels.push(`Winer (${config.winerPhone})`);
+        }
         if (config.miamiGroupJid) {
           targets.push({ target: config.miamiGroupJid, text: teamMsg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName || "Oficina Miami"})`);
         } else if (config.miamiGroupName) {
           targets.push({ target: `GROUP_NAME:${config.miamiGroupName}`, text: teamMsg });
+          recipientLabels.push(`Grupo Miami (${config.miamiGroupName})`);
         }
       }
-      if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: teamMsg });
-      if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: teamMsg });
+      if (config.ownerPhone1) {
+        targets.push({ target: config.ownerPhone1, text: teamMsg });
+        recipientLabels.push(`Socio 1 (${config.ownerPhone1})`);
+      }
+      if (config.ownerPhone2) {
+        targets.push({ target: config.ownerPhone2, text: teamMsg });
+        recipientLabels.push(`Socio 2 (${config.ownerPhone2})`);
+      }
     } else if (eventType === "DELIVERED" && config.notifyOnDelivered) {
       const totalFormatted =
         typeof orderData.total === "number"
@@ -344,11 +387,19 @@ export async function notifyOrderWhatsAppEvent(
         (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
         (totalFormatted ? `• *Total:* ${totalFormatted}\n` : "") +
         `• *Estado:* Entregado / Recibido con éxito ✅`;
+      loggedTeamMsg = msg;
 
-      if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: msg });
-      if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: msg });
+      if (config.ownerPhone1) {
+        targets.push({ target: config.ownerPhone1, text: msg });
+        recipientLabels.push(`Socio 1 (${config.ownerPhone1})`);
+      }
+      if (config.ownerPhone2) {
+        targets.push({ target: config.ownerPhone2, text: msg });
+        recipientLabels.push(`Socio 2 (${config.ownerPhone2})`);
+      }
       if (isMiami && config.miamiGroupJid) {
         targets.push({ target: config.miamiGroupJid, text: msg });
+        recipientLabels.push(`Grupo Miami (${config.miamiGroupName || "Oficina Miami"})`);
       }
     }
 
@@ -359,6 +410,50 @@ export async function notifyOrderWhatsAppEvent(
     }
 
     await enqueueWhatsAppMessages(Array.from(uniqueTargets.values()));
+
+    // Registrar en el historial de Avisos de Pedidos (SofiaOrderAlert) y en el Chat del Cliente (SofiaChat)
+    try {
+      if (uniqueTargets.size > 0) {
+        await db.auditLog.create({
+          data: {
+            entity: "SofiaOrderAlert",
+            entityId: orderData.quoteNumber,
+            action: eventType,
+            details: JSON.stringify({
+              eventType,
+              quoteNumber: orderData.quoteNumber,
+              clientName: orderData.clientName,
+              clientPhone: loggedClientPhone || orderData.clientPhone || null,
+              warehouseName: orderData.warehouseName,
+              deliveryMethod: orderData.deliveryMethod || null,
+              scheduledFormatted: formattedSchedule,
+              itemsSummary: orderData.itemsSummary || null,
+              clientMessage: loggedClientMsg || null,
+              teamMessage: loggedTeamMsg || null,
+              recipients: recipientLabels,
+            }),
+          },
+        });
+      }
+
+      if (loggedClientPhone && loggedClientMsg) {
+        await db.auditLog.create({
+          data: {
+            entity: "SofiaChat",
+            entityId: "OrderClientNotice",
+            action: "LOG",
+            details: JSON.stringify({
+              request: {
+                message: "",
+                phone: loggedClientPhone,
+                contactId: loggedClientPhone,
+              },
+              reply: loggedClientMsg,
+            }),
+          },
+        });
+      }
+    } catch {}
   } catch (err) {
     console.error("Error en notifyOrderWhatsAppEvent:", err);
   }
