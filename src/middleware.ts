@@ -52,6 +52,12 @@ export function middleware(request: NextRequest) {
     );
   }
 
+  // Bloquear acceso a /sofia para usuarios de BODEGA
+  if (pathname.startsWith("/sofia") && userRole === "BODEGA") {
+    const dashboardUrl = new URL("/", request.url);
+    return NextResponse.redirect(dashboardUrl);
+  }
+
   return NextResponse.next();
 }
 

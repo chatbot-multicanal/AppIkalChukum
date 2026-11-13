@@ -26,7 +26,7 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
 ### CONOCIMIENTO DE IKAL CHUKUM:
 - Especializados en acabados naturales inspirados en el Chukum Maya ancestral.
 - El nombre: IKAL (Espíritu en maya) + CHUKUM (árbol de origen). Significa "El Espíritu del Chukum".
-- Mérida, México: Planta de producción y oficinas centrales.
+- Mérida, México: Planta de producción y oficinas centrales. En Mérida **todos los 10 colores están siempre disponibles y se fabrican sobre pedido** (NUNCA digas que están agotados o sin stock en Mérida).
 - Miami, Estados Unidos: Centro de distribución en "8357 NW 68ST. (MIAMI – FLORIDA 33166)" (Operado por RCB Logistic Corp). Distribuimos a todo EE.UU. desde aquí.
 
 ### PRODUCTO Y RENDIMIENTOS:
@@ -76,7 +76,7 @@ Tu misión es ayudar de forma elegante, profesional, empática y honesta. No int
     Te comparto nuestra paleta oficial de colores de EE. UU. justo aquí abajo en imagen: 👇"
 
   - **CASO 2: Cliente en MÉXICO o CUALQUIER OTRO PAÍS (Exportación Internacional)**:
-    - Para proyectos en México y envíos de exportación a otros países manejamos la **paleta completa de 10 colores**: **Natural, Palo de Rosa, Rojo, Amarillo Hacienda, Gris, Azul Maya, Verde Jade, Terra Café, Terra Rojizo y Negro**.
+    - Para proyectos en México y envíos de exportación a otros países manejamos la **paleta completa de 10 colores**: **Natural, Palo de Rosa, Rojo, Amarillo Hacienda, Gris, Azul Maya, Verde Jade, Terra Café, Terra Rojizo y Negro**. Todos los colores en Mérida están siempre disponibles y se preparan **sobre pedido** directamente en nuestra planta de producción.
     - Utiliza EXACTAMENTE la siguiente redacción, emojis y códigos #IK-...:
   
     "🎨 *Nuestra Paleta de Colores IKAL CHUKUM (México y Exportación)*
@@ -686,35 +686,78 @@ export async function POST(request: Request) {
 
             if (!wh) {
               result = { error: `La bodega '${args.warehouseName}' no existe.` };
+            } else if (wh.name.toLowerCase().includes("mérida") || wh.name.toLowerCase().includes("merida")) {
+              result = {
+                warehouse: wh.name,
+                requestedColorOrSku: args.skuOrColor,
+                available: true,
+                availabilityType: "Disponible sobre pedido (Planta de Producción en Mérida)",
+                message: "En Mérida se encuentra nuestra planta de producción: TODOS los colores están disponibles y se fabrican sobre pedido para tu obra."
+              };
             } else {
-              const term = args.skuOrColor.trim();
-              const product = await db.product.findFirst({
-                where: {
-                  OR: [
-                    { sku: { equals: term, mode: "insensitive" } },
-                    { name: { contains: term, mode: "insensitive" } }
-                  ]
-                }
-              });
-
-              if (!product) {
-                result = { error: `No se encontró ningún producto con SKU o color '${term}'.` };
-              } else {
-                const inv = await db.inventory.findUnique({
-                  where: {
-                    warehouseId_productId: {
-                      warehouseId: wh.id,
-                      productId: product.id
-                    }
-                  }
-                });
-                result = {
-                  productName: product.name,
-                  sku: product.sku,
-                  warehouse: wh.name,
-                  stock: inv ? inv.quantity : 0
-                };
+              const term = args.skuOrColor.trim().toLowerCase();
+              let sacoSku = "SACO-NAT-001";
+              let colorLabel = "Natural";
+              if (term.includes("gris") || term.includes("grey") || term.includes("grs")) {
+                sacoSku = "SACO-GRS-002";
+                colorLabel = "Gris (Grey)";
+              } else if (term.includes("rosa") || term.includes("palo") || term.includes("rosewood") || term.includes("pdr")) {
+                sacoSku = "SACO-PDR-003";
+                colorLabel = "Palo de Rosa (Rosewood)";
+              } else if (term.includes("azul") || term.includes("maya") || term.includes("azm")) {
+                sacoSku = "SACO-AZM-004";
+                colorLabel = "Azul Maya (Mayan Blue)";
+              } else if (term.includes("verde") || term.includes("jade") || term.includes("vjd")) {
+                sacoSku = "SACO-VJD-005";
+                colorLabel = "Verde Jade (Jade)";
+              } else if (term.includes("amarillo") || term.includes("hacienda") || term.includes("amh")) {
+                sacoSku = "SACO-AMH-006";
+                colorLabel = "Amarillo Hacienda";
+              } else if (term.includes("rojo") || term.includes("red") || term.includes("pixoy") || term.includes("pxr")) {
+                sacoSku = "SACO-PXR-007";
+                colorLabel = "Rojo (Red)";
+              } else if (term.includes("negro") || term.includes("black") || term.includes("ngr")) {
+                sacoSku = "SACO-NGR-008";
+                colorLabel = "Negro";
+              } else if (term.includes("tierra") || term.includes("terra") || term.includes("caf") || term.includes("tra")) {
+                sacoSku = "SACO-TRA-009";
+                colorLabel = "Tierra / Terra";
               }
+
+              const [sacoProd, bidonProd] = await Promise.all([
+                db.product.findUnique({ where: { sku: sacoSku } }),
+                db.product.findUnique({ where: { sku: "BIDON-RES-001" } })
+              ]);
+
+              const [sacoInv, bidonInv] = await Promise.all([
+                sacoProd
+                  ? db.inventory.findUnique({
+                      where: { warehouseId_productId: { warehouseId: wh.id, productId: sacoProd.id } }
+                    })
+                  : null,
+                bidonProd
+                  ? db.inventory.findUnique({
+                      where: { warehouseId_productId: { warehouseId: wh.id, productId: bidonProd.id } }
+                    })
+                  : null
+              ]);
+
+              const sacosQty = sacoInv ? sacoInv.quantity : 0;
+              const bidonesQty = bidonInv ? bidonInv.quantity : 0;
+              const kitsAvailable = Math.min(Math.floor(sacosQty / 3), Math.floor(bidonesQty));
+
+              result = {
+                color: colorLabel,
+                sacoSku,
+                warehouse: wh.name,
+                sacosDisponibles: sacosQty,
+                bidonesDisponibles: bidonesQty,
+                kitsDisponiblesEntregaInmediata: kitsAvailable,
+                nota:
+                  kitsAvailable > 0
+                    ? `Hay ${kitsAvailable} kits de ${colorLabel} listos para envío inmediato desde ${wh.name}.`
+                    : `Actualmente este tono no tiene stock inmediato en ${wh.name}, pero se puede enviar sobre pedido desde nuestra planta en Mérida.`
+              };
             }
           } catch (e: any) {
             result = { success: false, error: e.message };

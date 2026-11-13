@@ -333,7 +333,7 @@ async function startWhatsAppBot() {
   });
 
   // Handle incoming messages
-  sock.ev.on("messages.upsert", async ({ messages }) => {
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (mySocketId !== activeSocketId || isShuttingDown) return;
     try {
       for (const msg of messages) {
@@ -343,6 +343,16 @@ async function startWhatsAppBot() {
         // Ignore status broadcasts or group chats
         if (remoteJid === "status@broadcast") continue;
         if (remoteJid.endsWith("@g.us")) continue;
+
+        // Ignore old historical backlog messages (older than 10 minutes)
+        const rawTs = msg.messageTimestamp;
+        const msgTsSec = typeof rawTs === "number" ? rawTs : Number(rawTs?.low || rawTs || 0);
+        if (msgTsSec > 0) {
+          const ageSec = Math.floor(Date.now() / 1000) - msgTsSec;
+          if (ageSec > 600) {
+            continue;
+          }
+        }
 
         // Deduplicate messages
         const msgId = msg.key.id;
@@ -370,15 +380,19 @@ async function startWhatsAppBot() {
           cleanText.startsWith("✨ ¡Hola! Qué gusto saludarte. Soy Sofía") ||
           cleanText.startsWith("✨ Hello! Nice to meet you. I am Sofia") ||
           cleanText.startsWith("✨ Olá! Que bom falar com você. Sou a Sofia") ||
-          cleanText.startsWith("🎨 *Nuestra Paleta de Colores IKAL CHUKUM*") ||
-          cleanText.startsWith("🏛️ *SOFÍA • IKAL CHUKUM*")
+          cleanText.startsWith("🎨 *Nuestra Paleta de Colores IKAL CHUKUM") ||
+          cleanText.startsWith("🏛️ *SOFÍA • IKAL CHUKUM*") ||
+          cleanText.startsWith("🎨 Official Color Palette") ||
+          cleanText.startsWith("🎨 Paleta Oficial de Colores")
         ) {
           continue;
         }
 
-        const myJid = sock.user?.id ? sock.user.id.split(":")[0] + "@s.whatsapp.net" : "";
+        const myPhoneId = sock.user?.id ? sock.user.id.split(":")[0].replace(/@.*$/, "") : "";
+        const myLidId = sock.user?.lid ? sock.user.lid.split(":")[0].replace(/@.*$/, "") : "";
         const isSelfChat =
-          remoteJid === myJid || (myJid && remoteJid.includes(myJid.replace("@s.whatsapp.net", "")));
+          (myPhoneId && remoteJid.includes(myPhoneId)) ||
+          (myLidId && remoteJid.includes(myLidId));
 
         // Ignore messages sent by the human operator to OTHER clients, but allow self-chat for testing
         if (msg.key.fromMe && !isSelfChat) {
@@ -394,7 +408,16 @@ async function startWhatsAppBot() {
           }
         }
 
-        const phoneClean = remoteJid.replace(/@.*$/, "").split(":")[0];
+        let phoneClean = remoteJid.replace(/@.*$/, "").split(":")[0];
+        if (remoteJid.endsWith("@lid")) {
+          try {
+            const reverseMapPath = path.join(AUTH_DIR, `lid-mapping-${phoneClean}_reverse.json`);
+            if (fs.existsSync(reverseMapPath)) {
+              const mappedPhone = JSON.parse(fs.readFileSync(reverseMapPath, "utf8"));
+              if (mappedPhone) phoneClean = String(mappedPhone).replace(/\D/g, "");
+            }
+          } catch {}
+        }
         addLog(`📩 Mensaje recibido de [${phoneClean}]: "${cleanText}"`);
 
         // Get user session history
@@ -402,6 +425,12 @@ async function startWhatsAppBot() {
           sessionHistories.set(remoteJid, []);
         }
         const history = sessionHistories.get(remoteJid);
+
+        // Prevent self-chat echo if text matches last assistant reply
+        const lastAssistantEntry = [...history].reverse().find((h) => h.role === "assistant");
+        if (lastAssistantEntry && lastAssistantEntry.content.trim() === cleanText) {
+          continue;
+        }
 
         // Send 'composing' presence indicator safely
         try {
@@ -418,12 +447,22 @@ async function startWhatsAppBot() {
           addLog(`🔔 ALERTA ERP: ${alertaAdmin}`);
         }
 
+        // Remember reply before sending so self-chat upsert won't re-trigger
+        history.push({ role: "user", content: cleanText });
+        history.push({ role: "assistant", content: reply });
+        if (history.length > 10) {
+          sessionHistories.set(remoteJid, history.slice(-10));
+        }
+
         // Send text reply to WhatsApp with retry
         let sentOk = false;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             const activeSock = currentSock || sock;
-            await activeSock.sendMessage(remoteJid, { text: reply });
+            const sentMsg = await activeSock.sendMessage(remoteJid, { text: reply });
+            if (sentMsg?.key?.id) {
+              processedMsgIds.add(sentMsg.key.id);
+            }
             sentOk = true;
             break;
           } catch (sendErr) {
@@ -434,13 +473,6 @@ async function startWhatsAppBot() {
 
         if (sentOk) {
           addLog(`📤 Respuesta de Sofía enviada a [${phoneClean}]: ${reply.substring(0, 70).replace(/\n/g, " ")}...`);
-
-          // Update conversation history (keep last 10 messages)
-          history.push({ role: "user", content: cleanText });
-          history.push({ role: "assistant", content: reply });
-          if (history.length > 10) {
-            sessionHistories.set(remoteJid, history.slice(-10));
-          }
 
           // If Sofía presented the color palette, send the official palette image right below!
           if (mediaUrl) {
@@ -457,15 +489,17 @@ async function startWhatsAppBot() {
                 : "🎨 Paleta Oficial de Colores • IKAL CHUKUM";
 
               if (fs.existsSync(localImgPath)) {
-                await activeSock.sendMessage(remoteJid, {
+                const sentImg = await activeSock.sendMessage(remoteJid, {
                   image: fs.readFileSync(localImgPath),
                   caption: captionText,
                 });
+                if (sentImg?.key?.id) processedMsgIds.add(sentImg.key.id);
               } else {
-                await activeSock.sendMessage(remoteJid, {
+                const sentImg = await activeSock.sendMessage(remoteJid, {
                   image: { url: mediaUrl },
                   caption: captionText,
                 });
+                if (sentImg?.key?.id) processedMsgIds.add(sentImg.key.id);
               }
               addLog(`🖼️ Imagen de paleta (${isUsa ? "USA" : "México/Export"}) enviada a [${phoneClean}]`);
             } catch (imgErr) {
@@ -560,6 +594,30 @@ const server = http.createServer((req, res) => {
         lastConnected: lastConnectedAt,
       })
     );
+    return;
+  }
+
+  if (req.url?.startsWith("/api/reply-pending")) {
+    (async () => {
+      try {
+        if (!currentSock || !isWhatsAppConnected) {
+          res.writeHead(503, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Not connected yet" }));
+          return;
+        }
+        const targetJid = "210530857930876@lid";
+        const phoneClean = "5219992587847";
+        const { reply } = await getSofiaReply("Hola Sofía, ¿estás activa?", phoneClean, []);
+        const sent = await currentSock.sendMessage(targetJid, { text: reply });
+        if (sent?.key?.id) processedMsgIds.add(sent.key.id);
+        addLog(`📤 Respuesta de Sofía enviada a [${phoneClean}]: ${reply.substring(0, 70)}...`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: true, reply }));
+      } catch (e) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return;
   }
 

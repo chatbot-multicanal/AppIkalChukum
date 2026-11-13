@@ -55,20 +55,43 @@ async function main() {
   });
   console.log("✓ Usuario bodega_miami@ikalchukum.com listo.");
 
-  // Crear o actualizar usuario Miami (Patricio)
-  await prisma.user.upsert({
-    where: { email: "ppupiales@rcbglobal.com" },
-    update: { warehouseId: whMiami.id, password: "rcb12345" },
+  // Crear o actualizar usuario Miami (W. Bravo)
+  const wbravo = await prisma.user.upsert({
+    where: { email: "wbravo@rcbglobal.com" },
+    update: { warehouseId: whMiami.id, password: "rcb12345", active: true, role: "BODEGA" },
     create: {
-      email: "ppupiales@rcbglobal.com",
-      name: "Patricio Pupiales",
+      email: "wbravo@rcbglobal.com",
+      name: "W. Bravo",
       role: "BODEGA",
       password: "rcb12345",
       active: true,
       warehouseId: whMiami.id,
     }
   });
-  console.log("✓ Usuario ppupiales@rcbglobal.com listo.");
+  console.log("✓ Usuario wbravo@rcbglobal.com listo.");
+
+  // Eliminar usuario anterior (ppupiales@rcbglobal.com)
+  const oldUser = await prisma.user.findUnique({
+    where: { email: "ppupiales@rcbglobal.com" }
+  });
+  if (oldUser) {
+    await prisma.comment.updateMany({
+      where: { userId: oldUser.id },
+      data: { userId: wbravo.id }
+    });
+    await prisma.financeRecord.updateMany({
+      where: { userId: oldUser.id },
+      data: { userId: wbravo.id }
+    });
+    await prisma.order.updateMany({
+      where: { acknowledgedById: oldUser.id },
+      data: { acknowledgedById: wbravo.id }
+    });
+    await prisma.user.delete({
+      where: { id: oldUser.id }
+    });
+    console.log("✓ Usuario ppupiales@rcbglobal.com eliminado.");
+  }
 }
 
 main()

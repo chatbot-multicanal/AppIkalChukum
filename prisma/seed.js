@@ -181,10 +181,10 @@ async function main() {
     },
   });
 
-  const bodegaMiamiPatricio = await prisma.user.create({
+  const bodegaMiamiWBravo = await prisma.user.create({
     data: {
-      email: "ppupiales@rcbglobal.com",
-      name: "Patricio Pupiales",
+      email: "wbravo@rcbglobal.com",
+      name: "W. Bravo",
       role: "BODEGA",
       password: "rcb12345",
       active: true,
