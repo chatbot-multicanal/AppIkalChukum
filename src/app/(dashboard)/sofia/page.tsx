@@ -66,11 +66,11 @@ export default function SofiaMonitorPage() {
     updatedAt: null,
   });
   const [notifConfig, setNotifConfig] = useState<WaNotificationConfig>({
-    winerPhone: "",
-    miamiGroupJid: "",
-    miamiGroupName: "Miami",
+    winerPhone: "593998293607",
+    miamiGroupJid: "120363426383204504@g.us",
+    miamiGroupName: "ikal Chukum oficina Miami",
     ownerPhone1: "5219992587847",
-    ownerPhone2: "5219992758500",
+    ownerPhone2: "5219991597289",
     notifyOnNewOrder: true,
     notifyOnAcknowledge: true,
     notifyOnDelivered: true,

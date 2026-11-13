@@ -4,10 +4,11 @@ export interface WaNotificationConfig {
   winerPhone: string;
   miamiGroupJid: string;
   miamiGroupName: string;
-  ownerPhone1: string; // Usuario principal
-  ownerPhone2: string; // Socio
+  ownerPhone1: string; // Arturo
+  ownerPhone2: string; // Socio (Alberteto Saenz)
   notifyOnNewOrder: boolean;
   notifyOnAcknowledge: boolean;
+  notifyOnShippedOrPickup: boolean;
   notifyOnDelivered: boolean;
 }
 
@@ -19,13 +20,14 @@ export interface WaOutboundMessage {
 }
 
 const DEFAULT_CONFIG: WaNotificationConfig = {
-  winerPhone: "",
-  miamiGroupJid: "",
-  miamiGroupName: "Miami",
+  winerPhone: "593998293607",
+  miamiGroupJid: "120363426383204504@g.us",
+  miamiGroupName: "ikal Chukum oficina Miami",
   ownerPhone1: "5219992587847",
-  ownerPhone2: "5219992758500",
+  ownerPhone2: "5219991597289",
   notifyOnNewOrder: true,
   notifyOnAcknowledge: true,
+  notifyOnShippedOrPickup: true,
   notifyOnDelivered: true,
 };
 
@@ -144,7 +146,6 @@ export async function enqueueWhatsAppMessages(
       });
     }
 
-    // Keep last 50 queued items max
     if (queue.length > 50) {
       queue = queue.slice(-50);
     }
@@ -160,16 +161,21 @@ export async function enqueueWhatsAppMessages(
 }
 
 export async function notifyOrderWhatsAppEvent(
-  eventType: "NEW_ORDER" | "ACKNOWLEDGED" | "PREPARING" | "DELIVERED",
+  eventType: "NEW_ORDER" | "ACKNOWLEDGED" | "PREPARING" | "SHIPPED" | "DELIVERED",
   orderData: {
     quoteNumber: string;
     clientName: string;
+    clientPhone?: string | null;
     warehouseName: string;
+    warehouseAddress?: string | null;
     deliveryMethod?: string;
+    scheduledDeliveryAt?: Date | string | null;
+    trackingNumber?: string | null;
+    shippingCarrier?: string | null;
+    shippingLabelUrl?: string | null;
     total?: number;
     currency?: string;
     itemsSummary?: string;
-    acknowledgedBy?: string;
   }
 ) {
   try {
@@ -179,6 +185,14 @@ export async function notifyOrderWhatsAppEvent(
 
     const deliveryLabel =
       orderData.deliveryMethod === "RECOLECTA" ? "Recolecta en Bodega" : "Envío a Domicilio";
+
+    const formattedSchedule = orderData.scheduledDeliveryAt
+      ? new Date(orderData.scheduledDeliveryAt).toLocaleString("es-MX", {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: isMiami ? "America/New_York" : "America/Mexico_City",
+        })
+      : null;
 
     if (eventType === "NEW_ORDER" && config.notifyOnNewOrder) {
       const msg =
@@ -210,7 +224,7 @@ export async function notifyOrderWhatsAppEvent(
         `• *Cliente:* ${orderData.clientName}\n` +
         `• *Bodega:* ${orderData.warehouseName}\n` +
         (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
-        `• *Estado:* Pedido confirmado de recibido / En preparación por bodega.`;
+        `• *Estado:* Confirmado de recibido / En preparación por bodega.`;
 
       if (isMiami) {
         if (config.winerPhone) targets.push({ target: config.winerPhone, text: msg });
@@ -222,6 +236,72 @@ export async function notifyOrderWhatsAppEvent(
       }
       if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: msg });
       if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: msg });
+    } else if (eventType === "SHIPPED" && config.notifyOnShippedOrPickup) {
+      const isRecolecta = orderData.deliveryMethod === "RECOLECTA";
+      const cleanClientPhone = String(orderData.clientPhone || "").replace(/\D/g, "");
+
+      // 1. Mensaje directo al Cliente (si tiene teléfono registrado)
+      if (cleanClientPhone.length >= 10) {
+        let clientMsg = "";
+        if (isRecolecta) {
+          const whLocation =
+            orderData.warehouseAddress ||
+            (isMiami
+              ? "8357 NW 68ST, Miami, FL 33166 (Bodega Miami)"
+              : orderData.warehouseName);
+          clientMsg =
+            `🏛️ *IKAL CHUKUM • Pedido Listo para Recolecta*\n\n` +
+            `¡Hola *${orderData.clientName}*! ✨ Te informamos que tu pedido (*${orderData.quoteNumber}*) ya está listo para recolecta en nuestra *${orderData.warehouseName}*.\n\n` +
+            (formattedSchedule
+              ? `🕒 *Fecha y hora programada para pasar a recogerlo:* ${formattedSchedule}\n`
+              : "") +
+            `📍 *Dirección:* ${whLocation}\n` +
+            (orderData.itemsSummary ? `📦 *Material:* ${orderData.itemsSummary}\n` : "") +
+            `\n¡Te esperamos! Cualquier duda estamos para servirte.`;
+        } else {
+          clientMsg =
+            `🚚 *IKAL CHUKUM • Estatus de tu Envío*\n\n` +
+            `¡Hola *${orderData.clientName}*! ✨ Te informamos que tu pedido (*${orderData.quoteNumber}*) ha salido de nuestra *${orderData.warehouseName}* y ya se encuentra en camino.\n\n` +
+            (orderData.itemsSummary ? `📦 *Material:* ${orderData.itemsSummary}\n` : "") +
+            (orderData.shippingCarrier ? `🚛 *Paquetería:* ${orderData.shippingCarrier}\n` : "") +
+            (orderData.trackingNumber
+              ? `🔢 *Número de rastreo (Tracking):* ${orderData.trackingNumber}\n`
+              : "") +
+            (formattedSchedule ? `📅 *Fecha programada:* ${formattedSchedule}\n` : "") +
+            (orderData.shippingLabelUrl ? `📄 *Guía:* ${orderData.shippingLabelUrl}\n` : "") +
+            `\n¡Gracias por tu preferencia en *IKAL CHUKUM*!`;
+        }
+        targets.push({ target: cleanClientPhone, text: clientMsg });
+      }
+
+      // 2. Aviso interno al equipo (Grupo Miami, Winer y Socios)
+      const teamMsg = isRecolecta
+        ? `🕒 *HORA DE RECOLECTA PROGRAMADA • IKAL CHUKUM*\n\n` +
+          `• *Folio:* ${orderData.quoteNumber}\n` +
+          `• *Cliente:* ${orderData.clientName}\n` +
+          `• *Bodega:* ${orderData.warehouseName}\n` +
+          (formattedSchedule ? `• *Hora programada:* ${formattedSchedule}\n` : "") +
+          (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
+          `• *Aviso al cliente:* ${cleanClientPhone.length >= 10 ? "Enviado por WhatsApp ✅" : "Cliente sin teléfono registrado"}`
+        : `🚚 *PEDIDO EN CAMINO / ENVIADO • IKAL CHUKUM*\n\n` +
+          `• *Folio:* ${orderData.quoteNumber}\n` +
+          `• *Cliente:* ${orderData.clientName}\n` +
+          `• *Bodega:* ${orderData.warehouseName}\n` +
+          (orderData.trackingNumber ? `• *Rastreo:* ${orderData.trackingNumber}\n` : "") +
+          (formattedSchedule ? `• *Fecha programada:* ${formattedSchedule}\n` : "") +
+          (orderData.itemsSummary ? `• *Material:* ${orderData.itemsSummary}\n` : "") +
+          `• *Aviso al cliente:* ${cleanClientPhone.length >= 10 ? "Enviado por WhatsApp ✅" : "Cliente sin teléfono registrado"}`;
+
+      if (isMiami) {
+        if (config.winerPhone) targets.push({ target: config.winerPhone, text: teamMsg });
+        if (config.miamiGroupJid) {
+          targets.push({ target: config.miamiGroupJid, text: teamMsg });
+        } else if (config.miamiGroupName) {
+          targets.push({ target: `GROUP_NAME:${config.miamiGroupName}`, text: teamMsg });
+        }
+      }
+      if (config.ownerPhone1) targets.push({ target: config.ownerPhone1, text: teamMsg });
+      if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: teamMsg });
     } else if (eventType === "DELIVERED" && config.notifyOnDelivered) {
       const totalFormatted =
         typeof orderData.total === "number"

@@ -483,16 +483,22 @@ export async function updateOrderStatusAction(
           console.error("Error al enviar correo en background:", err);
         });
 
-        // Notificar por WhatsApp vía Sofía cuando pasa a PREPARING o DELIVERED
-        if (newStatus === "PREPARING" || newStatus === "DELIVERED") {
+        // Notificar por WhatsApp vía Sofía cuando pasa a PREPARING, SHIPPED (Recolecta o Envío) o DELIVERED
+        if (newStatus === "PREPARING" || newStatus === "SHIPPED" || newStatus === "DELIVERED") {
           const itemsSummary = updatedOrder.quote.items
             .map((i) => `${i.quantity}x ${i.product.name}`)
             .join(", ");
           notifyOrderWhatsAppEvent(newStatus, {
             quoteNumber: updatedOrder.quote.quoteNumber,
             clientName: updatedOrder.quote.client?.name || "Cliente",
+            clientPhone: updatedOrder.quote.client?.phone || null,
             warehouseName: updatedOrder.warehouse?.name || "Bodega",
+            warehouseAddress: updatedOrder.warehouse?.address || null,
             deliveryMethod: updatedOrder.quote.deliveryMethod,
+            scheduledDeliveryAt: updatedOrder.scheduledDeliveryAt,
+            trackingNumber: updatedOrder.trackingNumber,
+            shippingCarrier: updatedOrder.quote.shippingCarrier,
+            shippingLabelUrl: updatedOrder.shippingLabelUrl,
             total: updatedOrder.quote.total,
             currency: updatedOrder.quote.currency,
             itemsSummary,
@@ -626,6 +632,9 @@ export async function buyShippoLabelAction(orderId: string, rateObjectId: string
         quote: {
           include: {
             client: true,
+            items: {
+              include: { product: true }
+            }
           }
         }
       }
@@ -713,6 +722,26 @@ export async function buyShippoLabelAction(orderId: string, rateObjectId: string
         }),
       },
     });
+
+    // Notificar al cliente y al equipo por WhatsApp vía Sofía con su número de guía
+    const itemsSummary = order.quote.items
+      .map((i) => `${i.quantity}x ${i.product.name}`)
+      .join(", ");
+    notifyOrderWhatsAppEvent("SHIPPED", {
+      quoteNumber: order.quote.quoteNumber,
+      clientName: order.quote.client?.name || "Cliente",
+      clientPhone: order.quote.client?.phone || null,
+      warehouseName: order.warehouse?.name || "Bodega",
+      warehouseAddress: order.warehouse?.address || null,
+      deliveryMethod: order.quote.deliveryMethod,
+      scheduledDeliveryAt: order.scheduledDeliveryAt,
+      trackingNumber: transactionData.tracking_number,
+      shippingCarrier: order.quote.shippingCarrier,
+      shippingLabelUrl: transactionData.label_url,
+      total: order.quote.total,
+      currency: order.quote.currency,
+      itemsSummary,
+    }).catch(() => {});
 
     revalidatePath("/pedidos");
     revalidatePath("/");
