@@ -423,7 +423,13 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
       orders: preparingOrders,
       actionButton: (order: Order) => {
         const isBodega = userRole === "BODEGA";
-        const dateValue = deliveryDates[order.id] || "";
+        const isMiamiOrder =
+          order.warehouse?.country === "Estados Unidos" ||
+          order.warehouse?.name?.toLowerCase().includes("miami");
+        const defaultDate = new Date().toLocaleDateString("en-CA", {
+          timeZone: isMiamiOrder ? "America/New_York" : "America/Mexico_City",
+        });
+        const dateValue = deliveryDates[order.id] ?? defaultDate;
         const timeValue = deliveryTimes[order.id] || "";
 
         const renderFulfillmentInputs = () => (
@@ -1006,7 +1012,7 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                         <span style={{ color: 'var(--primary-teal)', fontSize: '0.85rem' }}>📦</span>
                         <span style={{ lineHeight: 1.35 }}>{itemsList}</span>
                       </div>
-                      {order.scheduledDeliveryAt && (
+                      {order.scheduledDeliveryAt && (order.status === "SHIPPED" || order.status === "DELIVERED") && (
                         <div style={{ 
                           display: 'flex', 
                           alignItems: 'center', 
@@ -1022,7 +1028,10 @@ export default function PedidosClient({ initialOrders, initialWarehouses, userRo
                             day: '2-digit',
                             month: 'short',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
+                            timeZone: (order.warehouse?.country === "Estados Unidos" || order.warehouse?.name?.toLowerCase().includes("miami"))
+                              ? "America/New_York"
+                              : "America/Mexico_City"
                           })}</span>
                         </div>
                       )}

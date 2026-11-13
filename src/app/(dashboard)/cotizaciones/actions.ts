@@ -222,20 +222,13 @@ export async function approveQuoteAction(quoteId: string) {
         data: { status: "APPROVED" },
       });
 
-      // Create Order
-      const deliveryDate = new Date();
-      if (quote.deliveryMethod === "RECOLECTA") {
-        // Si no se programa fecha de recolección se pone fecha actual
-      } else {
-        deliveryDate.setDate(deliveryDate.getDate() + 3); // Default scheduled delivery in 3 days para envíos
-      }
-
+      // Create Order (la fecha/hora de recolección o entrega se programa en bodega al dar salida)
       await tx.order.create({
         data: {
           quoteId: quoteId,
           status: "PENDING",
           warehouseId: quote.warehouseId,
-          scheduledDeliveryAt: deliveryDate,
+          scheduledDeliveryAt: null,
         },
       });
 

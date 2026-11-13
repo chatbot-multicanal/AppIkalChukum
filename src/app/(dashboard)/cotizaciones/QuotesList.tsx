@@ -426,7 +426,10 @@ export default function QuotesList({ initialQuotes }: QuotesListProps) {
                                        day: "2-digit",
                                        month: "short",
                                        hour: "2-digit",
-                                       minute: "2-digit"
+                                       minute: "2-digit",
+                                       timeZone: (quote.warehouse?.country === "Estados Unidos" || quote.warehouse?.name?.toLowerCase().includes("miami") || quote.currency === "USD")
+                                         ? "America/New_York"
+                                         : "America/Mexico_City"
                                      })}`
                                    ) : "🚚 Listo para Entrega"
                                  ) :

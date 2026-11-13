@@ -128,16 +128,13 @@ export async function POST(
         }
       }
 
-      // 3. Crear el Pedido
-      const isRecolecta = quote.deliveryMethod === "RECOLECTA";
-      const deliveryDate = isRecolecta ? new Date() : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-
+      // 3. Crear el Pedido (la fecha/hora de recolección o entrega se programa en bodega al dar salida)
       await tx.order.create({
         data: {
           quoteId: quote.id,
           status: "PENDING",
           warehouseId: quote.warehouseId, // Asignar automáticamente la bodega de la cotización
-          scheduledDeliveryAt: deliveryDate
+          scheduledDeliveryAt: null
         }
       });
 

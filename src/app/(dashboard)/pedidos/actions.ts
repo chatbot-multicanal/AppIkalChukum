@@ -7,6 +7,40 @@ import { sendOrderStatusNotification } from "@/lib/mail";
 import { notifyOrderWhatsAppEvent } from "@/lib/whatsappNotifications";
 
 /**
+ * Convierte una fecha/hora sin zona ("YYYY-MM-DDTHH:mm") interpretándola en la zona horaria
+ * de la bodega (America/New_York para Miami, America/Mexico_City para Mérida),
+ * independientemente de que el servidor (Vercel) corra en UTC.
+ */
+function parseWarehouseDateTime(naiveOrIso: string, isMiami: boolean): Date {
+  const trimmed = naiveOrIso.trim();
+  if (/Z|[+-]\d{2}:?\d{2}$/.test(trimmed)) {
+    return new Date(trimmed);
+  }
+  const timeZone = isMiami ? "America/New_York" : "America/Mexico_City";
+  const [datePart, timePart = "00:00"] = trimmed.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  const utcGuess = Date.UTC(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(utcGuess));
+
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0);
+  const h = get("hour") === 24 ? 0 : get("hour");
+  const tzAsUtc = Date.UTC(get("year"), get("month") - 1, get("day"), h, get("minute"), get("second"));
+  const offsetMs = utcGuess - tzAsUtc;
+  return new Date(utcGuess + offsetMs);
+}
+
+/**
  * Fetches all orders, populated with quotes, items, client, and warehouse details.
  */
 export async function getOrdersAction() {
@@ -90,9 +124,11 @@ export async function updateOrderStatusAction(
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
+        warehouse: true,
         quote: {
           include: {
             client: true,
+            warehouse: true,
             items: {
               include: {
                 product: true,
@@ -438,7 +474,10 @@ export async function updateOrderStatusAction(
       else {
         const updateData: any = { status: newStatus };
         if (scheduledDeliveryAt) {
-          updateData.scheduledDeliveryAt = new Date(scheduledDeliveryAt);
+          const whName = (order.warehouse?.name || order.quote.warehouse?.name || "").toLowerCase();
+          const whCountry = order.warehouse?.country || order.quote.warehouse?.country || "";
+          const isMiami = whName.includes("miami") || whCountry === "Estados Unidos" || order.quote.currency === "USD";
+          updateData.scheduledDeliveryAt = parseWarehouseDateTime(scheduledDeliveryAt, isMiami);
         }
         await tx.order.update({
           where: { id: orderId },
