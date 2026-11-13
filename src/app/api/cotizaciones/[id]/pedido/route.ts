@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { notifyOrderWhatsAppEvent } from "@/lib/whatsappNotifications";
 
 // POST /api/cotizaciones/[id]/pedido - Convertir cotización aprobada en Pedido
 export async function POST(
@@ -13,6 +14,8 @@ export async function POST(
     const quote = await db.quote.findUnique({
       where: { id },
       include: {
+        client: true,
+        warehouse: true,
         items: {
           include: { product: true }
         }
@@ -148,6 +151,20 @@ export async function POST(
         }
       });
     });
+
+    // Notificar por WhatsApp vía Sofía (Winer, Grupo Miami y Socios)
+    const itemsSummary = quote.items
+      .map((i) => `${i.quantity}x ${i.product.name}`)
+      .join(", ");
+    notifyOrderWhatsAppEvent("NEW_ORDER", {
+      quoteNumber: quote.quoteNumber,
+      clientName: quote.client?.name || "Cliente",
+      warehouseName: quote.warehouse?.name || "Bodega",
+      deliveryMethod: quote.deliveryMethod,
+      total: quote.total,
+      currency: quote.currency,
+      itemsSummary,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, message: "Pedido creado exitosamente e inventario descontado." });
   } catch (error: any) {

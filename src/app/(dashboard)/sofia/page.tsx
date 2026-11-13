@@ -17,6 +17,7 @@ interface Conversation {
   country: string | null;
   lastMessage: string;
   lastAt: string;
+  isPaused?: boolean;
   messages: ChatMessage[];
 }
 
@@ -36,11 +37,23 @@ interface WaStatus {
   pairingCode?: string | null;
   lastConnected: string | null;
   serviceLogs: string[];
+  groups?: Array<{ jid: string; subject: string }>;
   updatedAt: string | null;
 }
 
+interface WaNotificationConfig {
+  winerPhone: string;
+  miamiGroupJid: string;
+  miamiGroupName: string;
+  ownerPhone1: string;
+  ownerPhone2: string;
+  notifyOnNewOrder: boolean;
+  notifyOnAcknowledge: boolean;
+  notifyOnDelivered: boolean;
+}
+
 export default function SofiaMonitorPage() {
-  const [activeSubTab, setActiveSubTab] = useState<"chat" | "qr" | "logs">("chat");
+  const [activeSubTab, setActiveSubTab] = useState<"chat" | "qr" | "alerts" | "logs">("chat");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [waStatus, setWaStatus] = useState<WaStatus>({
@@ -49,8 +62,22 @@ export default function SofiaMonitorPage() {
     pairingCode: null,
     lastConnected: null,
     serviceLogs: [],
+    groups: [],
     updatedAt: null,
   });
+  const [notifConfig, setNotifConfig] = useState<WaNotificationConfig>({
+    winerPhone: "",
+    miamiGroupJid: "",
+    miamiGroupName: "Miami",
+    ownerPhone1: "5219992587847",
+    ownerPhone2: "5219992758500",
+    notifyOnNewOrder: true,
+    notifyOnAcknowledge: true,
+    notifyOnDelivered: true,
+  });
+  const [notifLoaded, setNotifLoaded] = useState(false);
+  const [isSavingNotif, setIsSavingNotif] = useState(false);
+  const [isTogglingPause, setIsTogglingPause] = useState(false);
 
   const [selectedContactKey, setSelectedContactKey] = useState<string>("SIMULADOR");
   const [searchQuery, setSearchQuery] = useState("");
@@ -82,6 +109,10 @@ export default function SofiaMonitorPage() {
           if (data.waStatus.pairingCode) {
             setIsRequestingPairCode(false);
           }
+        }
+        if (data.notificationConfig && !notifLoaded) {
+          setNotifConfig(data.notificationConfig);
+          setNotifLoaded(true);
         }
 
         if (
@@ -132,6 +163,74 @@ export default function SofiaMonitorPage() {
     );
   });
 
+  const handleTogglePauseChat = async (conv: Conversation) => {
+    if (isTogglingPause) return;
+    setIsTogglingPause(true);
+    try {
+      const res = await fetch("/api/chat/sofia/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "TOGGLE_PAUSE_CHAT",
+          phone: conv.phone,
+          pause: !conv.isPaused,
+        }),
+      });
+      if (res.ok) {
+        await fetchMonitorData();
+      }
+    } catch (e) {
+      console.error("Error cambiando pausa del chat:", e);
+    } finally {
+      setIsTogglingPause(false);
+    }
+  };
+
+  const handleSaveNotifConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingNotif(true);
+    try {
+      const res = await fetch("/api/chat/sofia/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "SAVE_NOTIFICATION_CONFIG",
+          config: notifConfig,
+        }),
+      });
+      if (res.ok) {
+        alert("✅ Configuración de avisos de pedidos por WhatsApp guardada.");
+      }
+    } catch {
+      alert("Error al guardar configuración");
+    } finally {
+      setIsSavingNotif(false);
+    }
+  };
+
+  const handleTestNotification = async (target: string, label: string) => {
+    if (!target.trim()) {
+      alert("Primero ingresa un número o selecciona un grupo.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/chat/sofia/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "TEST_NOTIFICATION",
+          target,
+          label,
+        }),
+      });
+      if (res.ok) {
+        alert(`📲 Mensaje de prueba enviado a ${label} (${target}).`);
+      }
+    } catch {
+      alert("Error al enviar prueba");
+    }
+  };
+
   const handleSendMessageToSofia = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = testInput.trim();
@@ -146,6 +245,29 @@ export default function SofiaMonitorPage() {
     setTestInput("");
 
     try {
+      // Si el chat seleccionado está en PAUSA, enviar el mensaje directamente al WhatsApp del cliente como operador humano
+      if (activeConversation && activeConversation.isPaused) {
+        const res = await fetch("/api/chat/sofia/logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "SEND_MANUAL_MESSAGE",
+            phone: targetPhone,
+            message: text,
+          }),
+        });
+        if (res.ok) {
+          await fetchMonitorData();
+          setTimeout(() => {
+            chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 150);
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || "Error al enviar mensaje directo");
+        }
+        return;
+      }
+
       const res = await fetch("/api/chat/sofia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,11 +510,11 @@ export default function SofiaMonitorPage() {
         </div>
       )}
 
-      {/* 3-Tab Segmented Navigation (100% Mobile-Friendly Grid) */}
+      {/* 4-Tab Segmented Navigation (100% Mobile-Friendly Grid) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           gap: "8px",
           marginBottom: "18px",
           background: "rgba(0,0,0,0.28)",
@@ -423,6 +545,30 @@ export default function SofiaMonitorPage() {
           }}
         >
           💬 Chat ({conversations.length})
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab("alerts")}
+          style={{
+            padding: "11px 8px",
+            borderRadius: "10px",
+            fontWeight: 800,
+            fontSize: "0.82rem",
+            cursor: "pointer",
+            border:
+              activeSubTab === "alerts"
+                ? "1px solid rgba(245, 158, 11, 0.55)"
+                : "1px solid transparent",
+            background:
+              activeSubTab === "alerts"
+                ? "linear-gradient(135deg, rgba(245, 158, 11, 0.35) 0%, rgba(245, 158, 11, 0.12) 100%)"
+                : "transparent",
+            color: activeSubTab === "alerts" ? "#ffffff" : "var(--text-secondary)",
+            textAlign: "center",
+            transition: "all 0.2s ease",
+          }}
+        >
+          🔔 Avisos Pedidos
         </button>
 
         <button
@@ -660,9 +806,24 @@ export default function SofiaMonitorPage() {
                           }}
                         >
                           <span
-                            style={{ fontWeight: 700, color: "#fff", fontSize: "0.88rem" }}
+                            style={{ fontWeight: 700, color: "#fff", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "6px" }}
                           >
-                            {conv.clientName || `📱 ${conv.phone}`}
+                            <span>{conv.clientName || `📱 ${conv.phone}`}</span>
+                            {conv.isPaused && (
+                              <span
+                                style={{
+                                  fontSize: "0.65rem",
+                                  background: "rgba(245, 158, 11, 0.2)",
+                                  border: "1px solid rgba(245, 158, 11, 0.5)",
+                                  color: "#fbbf24",
+                                  padding: "1px 6px",
+                                  borderRadius: "8px",
+                                  fontWeight: 800,
+                                }}
+                              >
+                                ⏸️ En Pausa
+                              </span>
+                            )}
                           </span>
                           <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>
                             {new Date(conv.lastAt).toLocaleTimeString("es-MX", {
@@ -731,11 +892,28 @@ export default function SofiaMonitorPage() {
                     {activeConversation ? "💬" : "✨"}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 800, color: "#fff", fontSize: "0.95rem" }}>
-                      {activeConversation
-                        ? activeConversation.clientName ||
-                          `Cliente (${activeConversation.phone})`
-                        : "Simulador en Vivo • Sofía IA"}
+                    <div style={{ fontWeight: 800, color: "#fff", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span>
+                        {activeConversation
+                          ? activeConversation.clientName ||
+                            `Cliente (${activeConversation.phone})`
+                          : "Simulador en Vivo • Sofía IA"}
+                      </span>
+                      {activeConversation?.isPaused && (
+                        <span
+                          style={{
+                            fontSize: "0.7rem",
+                            background: "rgba(245, 158, 11, 0.22)",
+                            border: "1px solid rgba(245, 158, 11, 0.55)",
+                            color: "#fbbf24",
+                            padding: "2px 8px",
+                            borderRadius: "10px",
+                            fontWeight: 800,
+                          }}
+                        >
+                          ⏸️ IA Pausada (Atención Directa)
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: "0.73rem", color: "var(--text-secondary)" }}>
                       {activeConversation
@@ -744,7 +922,60 @@ export default function SofiaMonitorPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Botón para Pausar / Reactivar Sofía IA sobre este chat específico */}
+                {activeConversation && (
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePauseChat(activeConversation)}
+                    disabled={isTogglingPause}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "10px",
+                      fontSize: "0.78rem",
+                      fontWeight: 800,
+                      cursor: isTogglingPause ? "wait" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      background: activeConversation.isPaused
+                        ? "rgba(16, 185, 129, 0.2)"
+                        : "rgba(245, 158, 11, 0.18)",
+                      border: activeConversation.isPaused
+                        ? "1px solid rgba(16, 185, 129, 0.55)"
+                        : "1px solid rgba(245, 158, 11, 0.5)",
+                      color: activeConversation.isPaused ? "#34d399" : "#fbbf24",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    {activeConversation.isPaused
+                      ? "▶️ Reactivar Sofía IA"
+                      : "⏸️ Pausar Chat (Contestar Manual)"}
+                  </button>
+                )}
               </div>
+
+              {/* Aviso visual cuando el chat está en pausa */}
+              {activeConversation?.isPaused && (
+                <div
+                  style={{
+                    padding: "8px 16px",
+                    background: "rgba(245, 158, 11, 0.14)",
+                    borderBottom: "1px solid rgba(245, 158, 11, 0.35)",
+                    color: "#fcd34d",
+                    fontSize: "0.76rem",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <span>
+                    ⏸️ <strong>Sofía IA está en pausa para este chat.</strong> Tú o tu socio pueden contestarle directamente por WhatsApp o desde la barra de abajo sin que Sofía intervenga.
+                  </span>
+                </div>
+              )}
 
               {/* Messages Container */}
               <div
@@ -876,7 +1107,11 @@ export default function SofiaMonitorPage() {
               >
                 <input
                   type="text"
-                  placeholder="Escribe un mensaje a Sofía..."
+                  placeholder={
+                    activeConversation?.isPaused
+                      ? `👨‍💼 Responder directamente al WhatsApp de ${activeConversation.clientName || activeConversation.phone}...`
+                      : "Escribe un mensaje a Sofía..."
+                  }
                   value={testInput}
                   onChange={(e) => setTestInput(e.target.value)}
                   disabled={isSending}
@@ -886,7 +1121,9 @@ export default function SofiaMonitorPage() {
                     padding: "11px 14px",
                     borderRadius: "10px",
                     background: "rgba(255,255,255,0.05)",
-                    border: "1px solid var(--border-color)",
+                    border: activeConversation?.isPaused
+                      ? "1px solid rgba(245, 158, 11, 0.45)"
+                      : "1px solid var(--border-color)",
                     color: "#fff",
                     fontSize: "0.88rem",
                     outline: "none",
@@ -906,11 +1143,240 @@ export default function SofiaMonitorPage() {
                     opacity: isSending || !testInput.trim() ? 0.6 : 1,
                   }}
                 >
-                  {isSending ? "..." : "Enviar ➔"}
+                  {isSending
+                    ? "..."
+                    : activeConversation?.isPaused
+                    ? "Enviar a WA ➔"
+                    : "Enviar ➔"}
                 </button>
               </form>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          TAB: AVISOS AUTOMÁTICOS DE PEDIDOS POR WHATSAPP (WINER / MIAMI / SOCIOS)
+         ===================================================================== */}
+      {activeSubTab === "alerts" && (
+        <div className="glass-card" style={{ padding: "24px", maxWidth: "820px", margin: "0 auto" }}>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#fff", marginTop: 0, marginBottom: "6px" }}>
+            🔔 Avisos Automáticos de Pedidos por WhatsApp (Sofía ERP)
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "20px" }}>
+            Configura los números y el grupo de Miami para que Sofía avise automáticamente cuando se cree un pedido, cuando bodega confirme de recibido y cuando el pedido sea entregado.
+          </p>
+
+          <form onSubmit={handleSaveNotifConfig} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#fff", marginBottom: "6px" }}>
+                  📦 WhatsApp de Winer (Encargado Bodega Miami)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. 13051234567 (con código de país)"
+                  value={notifConfig.winerPhone}
+                  onChange={(e) => setNotifConfig({ ...notifConfig, winerPhone: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    background: "rgba(0,0,0,0.3)",
+                    border: "1px solid var(--border-color)",
+                    color: "#fff",
+                    fontSize: "0.88rem",
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleTestNotification(notifConfig.winerPhone, "Winer Bodega Miami")}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "rgba(45, 212, 191, 0.15)",
+                  border: "1px solid rgba(45, 212, 191, 0.45)",
+                  color: "#5eead4",
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                📲 Probar
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#fff", marginBottom: "6px" }}>
+                  👥 Grupo de WhatsApp de Miami
+                </label>
+                {waStatus.groups && waStatus.groups.length > 0 ? (
+                  <select
+                    value={notifConfig.miamiGroupJid}
+                    onChange={(e) => {
+                      const sel = waStatus.groups?.find((g) => g.jid === e.target.value);
+                      setNotifConfig({
+                        ...notifConfig,
+                        miamiGroupJid: e.target.value,
+                        miamiGroupName: sel ? sel.subject : notifConfig.miamiGroupName,
+                      });
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: "#0e1719",
+                      border: "1px solid var(--border-color)",
+                      color: "#fff",
+                      fontSize: "0.88rem",
+                    }}
+                  >
+                    <option value="">-- Seleccionar grupo detectado en WhatsApp --</option>
+                    {waStatus.groups.map((g) => (
+                      <option key={g.jid} value={g.jid}>
+                        {g.subject} ({g.jid})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="Nombre del grupo (ej. Miami) o JID del grupo"
+                    value={notifConfig.miamiGroupName}
+                    onChange={(e) => setNotifConfig({ ...notifConfig, miamiGroupName: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid var(--border-color)",
+                      color: "#fff",
+                      fontSize: "0.88rem",
+                    }}
+                  />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  handleTestNotification(
+                    notifConfig.miamiGroupJid || `GROUP_NAME:${notifConfig.miamiGroupName}`,
+                    "Grupo Miami"
+                  )
+                }
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: "10px",
+                  background: "rgba(45, 212, 191, 0.15)",
+                  border: "1px solid rgba(45, 212, 191, 0.45)",
+                  color: "#5eead4",
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                📲 Probar
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#fff", marginBottom: "6px" }}>
+                  👤 Tu WhatsApp (Confirmación de Entregas)
+                </label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="text"
+                    placeholder="Ej. 5219992587847"
+                    value={notifConfig.ownerPhone1}
+                    onChange={(e) => setNotifConfig({ ...notifConfig, ownerPhone1: e.target.value })}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid var(--border-color)",
+                      color: "#fff",
+                      fontSize: "0.88rem",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleTestNotification(notifConfig.ownerPhone1, "Socio 1")}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "10px",
+                      background: "rgba(45, 212, 191, 0.15)",
+                      border: "1px solid rgba(45, 212, 191, 0.45)",
+                      color: "#5eead4",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    📲
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, color: "#fff", marginBottom: "6px" }}>
+                  🤝 WhatsApp de tu Socio (Confirmación de Entregas)
+                </label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    type="text"
+                    placeholder="Ej. 5219992758500"
+                    value={notifConfig.ownerPhone2}
+                    onChange={(e) => setNotifConfig({ ...notifConfig, ownerPhone2: e.target.value })}
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid var(--border-color)",
+                      color: "#fff",
+                      fontSize: "0.88rem",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleTestNotification(notifConfig.ownerPhone2, "Socio 2")}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "10px",
+                      background: "rgba(45, 212, 191, 0.15)",
+                      border: "1px solid rgba(45, 212, 191, 0.45)",
+                      color: "#5eead4",
+                      fontWeight: 700,
+                      fontSize: "0.78rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    📲
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSavingNotif}
+              className="btn-premium btn-primary-teal"
+              style={{
+                marginTop: "6px",
+                padding: "12px 20px",
+                borderRadius: "12px",
+                fontWeight: 800,
+                fontSize: "0.9rem",
+                cursor: "pointer",
+              }}
+            >
+              {isSavingNotif ? "Guardando..." : "💾 Guardar Configuración de Avisos"}
+            </button>
+          </form>
         </div>
       )}
 

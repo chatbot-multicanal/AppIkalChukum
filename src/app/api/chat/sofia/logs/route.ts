@@ -5,6 +5,13 @@ import {
   resetCloudWhatsAppSession,
   requestCloudPairingCode,
 } from "@/lib/whatsappCloudEngine";
+import {
+  getPausedChats,
+  togglePausedChat,
+  getWaNotificationConfig,
+  saveWaNotificationConfig,
+  enqueueWhatsAppMessages,
+} from "@/lib/whatsappNotifications";
 
 export const dynamic = "force-dynamic";
 
@@ -171,10 +178,23 @@ export async function GET() {
       }
     }
 
-    // Ordenar conversaciones por actividad más reciente
-    const conversations = Array.from(conversationsMap.values()).sort(
-      (a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime()
-    );
+    // Ordenar conversaciones por actividad más reciente y marcar cuáles están en pausa
+    const [pausedChats, notificationConfig] = await Promise.all([
+      getPausedChats(),
+      getWaNotificationConfig(),
+    ]);
+
+    const conversations = Array.from(conversationsMap.values())
+      .map((conv) => {
+        const clean = conv.contactKey.replace(/\D/g, "");
+        const isPaused = pausedChats.some(
+          (p) =>
+            p === clean ||
+            (p.length >= 10 && clean.length >= 10 && p.slice(-10) === clean.slice(-10))
+        );
+        return { ...conv, isPaused };
+      })
+      .sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
 
     // 4. Asegurar que el motor WhatsApp en la nube esté activo y obtener su estado en tiempo real
     let waStatus: any = {
@@ -183,6 +203,7 @@ export async function GET() {
       lastConnected: null,
       serviceLogs: [],
       updatedAt: null,
+      groups: [],
     };
 
     try {
@@ -201,6 +222,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       conversations,
+      pausedChats,
+      notificationConfig,
       logs: formattedLogs.reverse(),
       waStatus,
     });
@@ -216,6 +239,75 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // Si la interfaz solicita pausar o reactivar Sofía IA en un chat específico
+    if (body.action === "TOGGLE_PAUSE_CHAT") {
+      const phone = String(body.phone || "").trim();
+      if (!phone) {
+        return NextResponse.json({ error: "Teléfono requerido" }, { status: 400 });
+      }
+      const { pausedChats, isPaused } = await togglePausedChat(phone, body.pause);
+      return NextResponse.json({
+        success: true,
+        pausedChats,
+        isPaused,
+      });
+    }
+
+    // Si un operador humano envía un mensaje directo desde el panel cuando el chat está en pausa
+    if (body.action === "SEND_MANUAL_MESSAGE") {
+      const phone = String(body.phone || "").replace(/\D/g, "");
+      const text = String(body.message || "").trim();
+      if (!phone || !text) {
+        return NextResponse.json({ error: "Teléfono y mensaje son requeridos" }, { status: 400 });
+      }
+
+      await enqueueWhatsAppMessages([{ target: phone, text }]);
+      await db.auditLog.create({
+        data: {
+          entity: "SofiaChat",
+          entityId: "ManualReply",
+          action: "LOG",
+          details: JSON.stringify({
+            request: { message: "", phone, contactId: phone },
+            reply: `👨‍💼 [Atención Directa]: ${text}`,
+          }),
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Mensaje enviado directamente al WhatsApp del cliente",
+      });
+    }
+
+    // Guardar configuración de notificaciones de pedidos (Winer, Grupo Miami, Socios)
+    if (body.action === "SAVE_NOTIFICATION_CONFIG") {
+      const updated = await saveWaNotificationConfig(body.config || {});
+      return NextResponse.json({
+        success: true,
+        notificationConfig: updated,
+      });
+    }
+
+    // Probar envío de notificación de WhatsApp a un destino
+    if (body.action === "TEST_NOTIFICATION") {
+      const target = String(body.target || "").trim();
+      const label = String(body.label || "Prueba").trim();
+      if (!target) {
+        return NextResponse.json({ error: "Ingresa un número o grupo para probar" }, { status: 400 });
+      }
+      await enqueueWhatsAppMessages([
+        {
+          target,
+          text: `🔔 *PRUEBA DE NOTIFICACIÓN • IKAL CHUKUM*\n\nEste es un mensaje de prueba para confirmar que los avisos automáticos de pedidos (${label}) están activos y conectados con Sofía IA. ✅`,
+        },
+      ]);
+      return NextResponse.json({
+        success: true,
+        message: "Mensaje de prueba encolado para envío inmediato por WhatsApp",
+      });
+    }
 
     // Si la interfaz solicita resetear el QR de WhatsApp directamente desde el servidor
     if (body.action === "REQUEST_RESET") {

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/mail";
+import { isChatPaused } from "@/lib/whatsappNotifications";
 
 const SOFIA_SYSTEM_PROMPT = `
 # LA BIBLIA DE SOFÍA
@@ -177,6 +178,33 @@ export async function POST(request: Request) {
 
     if (!message) {
       return NextResponse.json({ error: "El mensaje es requerido" }, { status: 400 });
+    }
+
+    // Verificar si este chat tiene a Sofía en PAUSA (Atención Humana directa)
+    const checkKey = String(phone || contactId || "").replace(/\D/g, "");
+    if (checkKey && !body.bypassPause && (await isChatPaused(checkKey))) {
+      try {
+        await db.auditLog.create({
+          data: {
+            entity: "SofiaChat",
+            entityId: "Paused",
+            action: "LOG",
+            details: JSON.stringify({
+              request: { message, phone, contactId },
+              reply: "",
+              paused: true,
+            }),
+          },
+        });
+      } catch {}
+
+      return NextResponse.json({
+        success: true,
+        paused: true,
+        reply: "",
+        mediaUrl: "",
+        sofia_alerta_admin: "",
+      });
     }
 
     let sofiaAlertaAdmin = "";

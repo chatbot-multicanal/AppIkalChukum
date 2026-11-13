@@ -85,6 +85,78 @@ let reconnectTimer = null;
 let isShuttingDown = false;
 let latestQrDataUrl = "";
 let latestPairingCode = "";
+let cachedGroups = [];
+let lastGroupFetchAt = 0;
+let isProcessingQueue = false;
+
+function resolveTargetToJid(targetStr) {
+  const raw = String(targetStr || "").trim();
+  if (!raw) return null;
+  if (raw.endsWith("@g.us") || raw.endsWith("@s.whatsapp.net") || raw.endsWith("@lid")) {
+    return raw;
+  }
+  if (raw.startsWith("GROUP_NAME:")) {
+    const query = raw.replace("GROUP_NAME:", "").trim().toLowerCase();
+    const found = cachedGroups.find((g) => g.subject && g.subject.toLowerCase().includes(query));
+    return found ? found.jid : null;
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  // Check if there is a forward lid-mapping file in AUTH_DIR
+  try {
+    const lidMapFile = path.join(AUTH_DIR, `lid-mapping-${digits}.json`);
+    if (fs.existsSync(lidMapFile)) {
+      const lid = JSON.parse(fs.readFileSync(lidMapFile, "utf8"));
+      if (lid) return `${String(lid).replace(/@.*$/, "")}@lid`;
+    }
+  } catch {}
+  return `${digits}@s.whatsapp.net`;
+}
+
+async function processOutboundQueue() {
+  if (!dbPool || !currentSock || !isWhatsAppConnected || isProcessingQueue) return;
+  isProcessingQueue = true;
+  try {
+    const res = await dbPool.query(
+      'SELECT "value" FROM "SystemSetting" WHERE "key" = $1',
+      ["WA_OUTBOUND_QUEUE"]
+    );
+    if (res.rows.length === 0 || !res.rows[0].value) {
+      isProcessingQueue = false;
+      return;
+    }
+    let queue = [];
+    try {
+      queue = JSON.parse(res.rows[0].value);
+    } catch {}
+    if (!Array.isArray(queue) || queue.length === 0) {
+      isProcessingQueue = false;
+      return;
+    }
+
+    // Clear queue first to avoid duplicate sends
+    await dbPool.query(
+      'UPDATE "SystemSetting" SET "value" = $1 WHERE "key" = $2',
+      ["[]", "WA_OUTBOUND_QUEUE"]
+    );
+
+    for (const item of queue) {
+      try {
+        const jid = resolveTargetToJid(item.target);
+        if (!jid) {
+          addLog(`⚠️ No se pudo resolver destino de WhatsApp para "${item.target}"`);
+          continue;
+        }
+        const sent = await currentSock.sendMessage(jid, { text: item.text });
+        if (sent?.key?.id) processedMsgIds.add(sent.key.id);
+        addLog(`📤 Aviso WhatsApp enviado a [${item.target}]: ${item.text.slice(0, 65).replace(/\n/g, " ")}...`);
+      } catch (sendErr) {
+        addLog(`⚠️ Error enviando aviso WhatsApp a [${item.target}]: ${sendErr.message}`);
+      }
+    }
+  } catch {}
+  isProcessingQueue = false;
+}
 
 /**
  * Syncs WhatsApp bot status, QR code, 8-digit pairing code, and live logs to Supabase SystemSetting ("WA_BOT_STATUS")
@@ -138,12 +210,26 @@ async function syncStatusToDatabase() {
       }
     }
 
+    if (isWhatsAppConnected && currentSock && Date.now() - lastGroupFetchAt > 60000) {
+      lastGroupFetchAt = Date.now();
+      try {
+        const groupsObj = await currentSock.groupFetchAllParticipating();
+        cachedGroups = Object.values(groupsObj || {}).map((g) => ({
+          jid: g.id,
+          subject: g.subject || g.id,
+        }));
+      } catch {}
+    }
+
+    await processOutboundQueue();
+
     const payload = JSON.stringify({
       connected: isWhatsAppConnected,
       qr: latestQrDataUrl || null,
       pairingCode: isWhatsAppConnected ? null : latestPairingCode || current.pairingCode || null,
       lastConnected: lastConnectedAt || current.lastConnected || null,
       serviceLogs: logBuffer.slice(-80),
+      groups: cachedGroups,
       updatedAt: new Date().toISOString(),
       pendingReset: false,
       pendingPairPhone: null,
@@ -193,8 +279,17 @@ async function getSofiaReply(cleanText, phone, history = []) {
 
     if (response.ok) {
       const data = await response.json();
+      if (data && data.paused) {
+        return {
+          paused: true,
+          reply: "",
+          mediaUrl: "",
+          alertaAdmin: "",
+        };
+      }
       if (data && data.reply) {
         return {
+          paused: false,
           reply: formatForWhatsApp(data.reply),
           mediaUrl: data.mediaUrl || "",
           alertaAdmin: data.sofia_alerta_admin || "",
@@ -441,7 +536,15 @@ async function startWhatsAppBot() {
         await new Promise((res) => setTimeout(res, 700));
 
         // Query Sofía AI + ERP tools
-        const { reply, mediaUrl, alertaAdmin } = await getSofiaReply(cleanText, phoneClean, history);
+        const { paused, reply, mediaUrl, alertaAdmin } = await getSofiaReply(cleanText, phoneClean, history);
+
+        if (paused || !reply) {
+          addLog(`⏸️ Chat con [${phoneClean}] en pausa (Atención Humana directa). Sofía no respondió.`);
+          try {
+            if (currentSock) await currentSock.sendPresenceUpdate("available", remoteJid);
+          } catch {}
+          continue;
+        }
 
         if (alertaAdmin) {
           addLog(`🔔 ALERTA ERP: ${alertaAdmin}`);

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { sendOrderStatusNotification } from "@/lib/mail";
+import { notifyOrderWhatsAppEvent } from "@/lib/whatsappNotifications";
 
 /**
  * Fetches all orders, populated with quotes, items, client, and warehouse details.
@@ -460,7 +461,7 @@ export async function updateOrderStatusAction(
       });
     });
 
-    // Enviar notificación por correo de forma asíncrona
+    // Enviar notificación por correo y por WhatsApp (Sofía) de forma asíncrona
     try {
       const updatedOrder = await db.order.findUnique({
         where: { id: orderId },
@@ -468,7 +469,10 @@ export async function updateOrderStatusAction(
           warehouse: true,
           quote: {
             include: {
-              client: true
+              client: true,
+              items: {
+                include: { product: true }
+              }
             }
           }
         }
@@ -478,6 +482,22 @@ export async function updateOrderStatusAction(
         sendOrderStatusNotification(updatedOrder, order.status, newStatus).catch(err => {
           console.error("Error al enviar correo en background:", err);
         });
+
+        // Notificar por WhatsApp vía Sofía cuando pasa a PREPARING o DELIVERED
+        if (newStatus === "PREPARING" || newStatus === "DELIVERED") {
+          const itemsSummary = updatedOrder.quote.items
+            .map((i) => `${i.quantity}x ${i.product.name}`)
+            .join(", ");
+          notifyOrderWhatsAppEvent(newStatus, {
+            quoteNumber: updatedOrder.quote.quoteNumber,
+            clientName: updatedOrder.quote.client?.name || "Cliente",
+            warehouseName: updatedOrder.warehouse?.name || "Bodega",
+            deliveryMethod: updatedOrder.quote.deliveryMethod,
+            total: updatedOrder.quote.total,
+            currency: updatedOrder.quote.currency,
+            itemsSummary,
+          }).catch(() => {});
+        }
       }
     } catch (mailError) {
       console.error("Error al preparar notificación por correo:", mailError);
@@ -515,7 +535,19 @@ export async function acknowledgeOrderAction(orderId: string) {
     }
 
     const order = await db.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: {
+        warehouse: true,
+        quote: {
+          include: {
+            client: true,
+            warehouse: true,
+            items: {
+              include: { product: true }
+            }
+          }
+        }
+      }
     });
 
     if (!order) {
@@ -544,6 +576,20 @@ export async function acknowledgeOrderAction(orderId: string) {
         }),
       },
     });
+
+    // Enviar aviso de confirmación de recibido por WhatsApp vía Sofía
+    const itemsSummary = order.quote.items
+      .map((i) => `${i.quantity}x ${i.product.name}`)
+      .join(", ");
+    notifyOrderWhatsAppEvent("ACKNOWLEDGED", {
+      quoteNumber: order.quote.quoteNumber,
+      clientName: order.quote.client?.name || "Cliente",
+      warehouseName: order.warehouse?.name || order.quote.warehouse?.name || "Bodega",
+      deliveryMethod: order.quote.deliveryMethod,
+      total: order.quote.total,
+      currency: order.quote.currency,
+      itemsSummary,
+    }).catch(() => {});
 
     revalidatePath("/pedidos");
     revalidatePath("/");
