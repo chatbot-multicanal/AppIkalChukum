@@ -250,7 +250,13 @@ export async function notifyOrderWhatsAppEvent(
       if (config.ownerPhone2) targets.push({ target: config.ownerPhone2, text: msg });
     } else if (eventType === "SHIPPED" && config.notifyOnShippedOrPickup) {
       const isRecolecta = orderData.deliveryMethod === "RECOLECTA";
-      const cleanClientPhone = String(orderData.clientPhone || "").replace(/\D/g, "");
+      const rawClientDigits = String(orderData.clientPhone || "").replace(/\D/g, "");
+      const cleanClientPhone =
+        rawClientDigits.length === 10
+          ? isMiami
+            ? `1${rawClientDigits}`
+            : `521${rawClientDigits}`
+          : rawClientDigits;
 
       // 1. Mensaje directo al Cliente (si tiene teléfono registrado)
       if (cleanClientPhone.length >= 10) {
@@ -259,17 +265,26 @@ export async function notifyOrderWhatsAppEvent(
           const whLocation =
             orderData.warehouseAddress ||
             (isMiami
-              ? "8357 NW 68ST, Miami, FL 33166 (Bodega Miami)"
+              ? "8357 NW 68th St, Miami, FL 33166 (Bodega Miami)"
               : orderData.warehouseName);
-          clientMsg =
-            `🏛️ *IKAL CHUKUM • Pedido Listo para Recolecta*\n\n` +
-            `¡Hola *${orderData.clientName}*! ✨ Te informamos que tu pedido (*${orderData.quoteNumber}*) ya está listo para recolecta en nuestra *${orderData.warehouseName}*.\n\n` +
-            (formattedSchedule
-              ? `🕒 *Fecha y hora programada para pasar a recogerlo:* ${formattedSchedule}\n`
-              : "") +
-            `📍 *Dirección:* ${whLocation}\n` +
-            (orderData.itemsSummary ? `📦 *Material:* ${orderData.itemsSummary}\n` : "") +
-            `\n¡Te esperamos! Cualquier duda estamos para servirte.`;
+          clientMsg = isMiami
+            ? `🏛️ *IKAL CHUKUM • Pedido Listo para Recolecta / Ready for Pickup*\n\n` +
+              `¡Hola *${orderData.clientName}*! ✨ Te informamos que tu pedido (*${orderData.quoteNumber}*) ya está listo para recolecta en nuestra *${orderData.warehouseName}*.\n` +
+              `Hi *${orderData.clientName}*! ✨ Your order (*${orderData.quoteNumber}*) is ready for pickup at our *Miami Warehouse*.\n\n` +
+              (formattedSchedule
+                ? `🕒 *Fecha y hora programada / Scheduled pickup:* ${formattedSchedule}\n`
+                : "") +
+              `📍 *Dirección / Address:* ${whLocation}\n` +
+              (orderData.itemsSummary ? `📦 *Material / Items:* ${orderData.itemsSummary}\n` : "") +
+              `\n¡Te esperamos! Cualquier duda estamos para servirte. / We look forward to seeing you!`
+            : `🏛️ *IKAL CHUKUM • Pedido Listo para Recolecta*\n\n` +
+              `¡Hola *${orderData.clientName}*! ✨ Te informamos que tu pedido (*${orderData.quoteNumber}*) ya está listo para recolecta en nuestra *${orderData.warehouseName}*.\n\n` +
+              (formattedSchedule
+                ? `🕒 *Fecha y hora programada para pasar a recogerlo:* ${formattedSchedule}\n`
+                : "") +
+              `📍 *Dirección:* ${whLocation}\n` +
+              (orderData.itemsSummary ? `📦 *Material:* ${orderData.itemsSummary}\n` : "") +
+              `\n¡Te esperamos! Cualquier duda estamos para servirte.`;
         } else {
           clientMsg =
             `🚚 *IKAL CHUKUM • Estatus de tu Envío*\n\n` +
