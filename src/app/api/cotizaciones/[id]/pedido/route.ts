@@ -152,11 +152,11 @@ export async function POST(
       });
     });
 
-    // Notificar por WhatsApp vía Sofía (Winer, Grupo Miami y Socios)
+    // Notificar por WhatsApp vía Sofía (Winer, Grupo Miami y Socios) - CON AWAIT para que Vercel Serverless no corte la ejecución
     const itemsSummary = quote.items
       .map((i) => `${i.quantity}x ${i.product.name}`)
       .join(", ");
-    notifyOrderWhatsAppEvent("NEW_ORDER", {
+    await notifyOrderWhatsAppEvent("NEW_ORDER", {
       quoteNumber: quote.quoteNumber,
       clientName: quote.client?.name || "Cliente",
       warehouseName: quote.warehouse?.name || "Bodega",
@@ -164,7 +164,9 @@ export async function POST(
       total: quote.total,
       currency: quote.currency,
       itemsSummary,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("Error en notifyOrderWhatsAppEvent (NEW_ORDER):", err);
+    });
 
     return NextResponse.json({ success: true, message: "Pedido creado exitosamente e inventario descontado." });
   } catch (error: any) {

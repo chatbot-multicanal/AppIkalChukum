@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ensureCloudWhatsAppEngine, processCloudOutboundQueue } from "@/lib/whatsappCloudEngine";
 
 export interface WaNotificationConfig {
   winerPhone: string;
@@ -155,6 +156,17 @@ export async function enqueueWhatsAppMessages(
       update: { value: JSON.stringify(queue) },
       create: { key: "WA_OUTBOUND_QUEUE", value: JSON.stringify(queue) },
     });
+
+    // Si el servicio dedicado no ha reportado latido en los últimos 10 segundos, procesar la cola desde el motor en la nube
+    try {
+      const statusRow = await db.systemSetting.findUnique({ where: { key: "WA_BOT_STATUS" } });
+      const parsed = statusRow?.value ? JSON.parse(statusRow.value) : null;
+      const ageMs = parsed?.updatedAt ? Date.now() - new Date(parsed.updatedAt).getTime() : 999999;
+      if (ageMs > 10000 || parsed?.mode === "cloud") {
+        await ensureCloudWhatsAppEngine(3000);
+        await processCloudOutboundQueue();
+      }
+    } catch {}
   } catch (err) {
     console.error("Error encolando mensaje de WhatsApp:", err);
   }

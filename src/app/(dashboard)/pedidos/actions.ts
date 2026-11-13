@@ -488,7 +488,7 @@ export async function updateOrderStatusAction(
           const itemsSummary = updatedOrder.quote.items
             .map((i) => `${i.quantity}x ${i.product.name}`)
             .join(", ");
-          notifyOrderWhatsAppEvent(newStatus, {
+          await notifyOrderWhatsAppEvent(newStatus, {
             quoteNumber: updatedOrder.quote.quoteNumber,
             clientName: updatedOrder.quote.client?.name || "Cliente",
             clientPhone: updatedOrder.quote.client?.phone || null,
@@ -587,7 +587,7 @@ export async function acknowledgeOrderAction(orderId: string) {
     const itemsSummary = order.quote.items
       .map((i) => `${i.quantity}x ${i.product.name}`)
       .join(", ");
-    notifyOrderWhatsAppEvent("ACKNOWLEDGED", {
+    await notifyOrderWhatsAppEvent("ACKNOWLEDGED", {
       quoteNumber: order.quote.quoteNumber,
       clientName: order.quote.client?.name || "Cliente",
       warehouseName: order.warehouse?.name || order.quote.warehouse?.name || "Bodega",
@@ -727,7 +727,7 @@ export async function buyShippoLabelAction(orderId: string, rateObjectId: string
     const itemsSummary = order.quote.items
       .map((i) => `${i.quantity}x ${i.product.name}`)
       .join(", ");
-    notifyOrderWhatsAppEvent("SHIPPED", {
+    await notifyOrderWhatsAppEvent("SHIPPED", {
       quoteNumber: order.quote.quoteNumber,
       clientName: order.quote.client?.name || "Cliente",
       clientPhone: order.quote.client?.phone || null,

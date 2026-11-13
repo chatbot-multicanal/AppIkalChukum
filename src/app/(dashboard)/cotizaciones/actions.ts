@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { notifyOrderWhatsAppEvent } from "@/lib/whatsappNotifications";
 
 export interface CreateQuoteItemInput {
   productId: string;
@@ -197,7 +198,12 @@ export async function approveQuoteAction(quoteId: string) {
 
     const quote = await db.quote.findUnique({
       where: { id: quoteId },
-      include: { order: true },
+      include: {
+        order: true,
+        client: true,
+        warehouse: true,
+        items: { include: { product: true } },
+      },
     });
 
     if (!quote) {
@@ -228,6 +234,7 @@ export async function approveQuoteAction(quoteId: string) {
         data: {
           quoteId: quoteId,
           status: "PENDING",
+          warehouseId: quote.warehouseId,
           scheduledDeliveryAt: deliveryDate,
         },
       });
@@ -246,6 +253,19 @@ export async function approveQuoteAction(quoteId: string) {
         },
       });
     });
+
+    const itemsSummary = quote.items
+      .map((i) => `${i.quantity}x ${i.product.name}`)
+      .join(", ");
+    await notifyOrderWhatsAppEvent("NEW_ORDER", {
+      quoteNumber: quote.quoteNumber,
+      clientName: quote.client?.name || "Cliente",
+      warehouseName: quote.warehouse?.name || "Bodega",
+      deliveryMethod: quote.deliveryMethod,
+      total: quote.total,
+      currency: quote.currency,
+      itemsSummary,
+    }).catch(() => {});
 
     // 2. Revalidate caches
     revalidatePath("/cotizaciones");

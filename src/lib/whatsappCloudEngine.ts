@@ -336,6 +336,7 @@ async function startCloudSocket(): Promise<void> {
         addCloudLog("🎉 ¡WHATSAPP CONECTADO EN LA NUBE! Sofía IA activa 24/7.");
         await persistStatusToDb();
         notifyQrWaiters(null);
+        processCloudOutboundQueue().catch(() => {});
       } else if (connection === "close") {
         st.isConnected = false;
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
@@ -506,7 +507,61 @@ export async function ensureCloudWhatsAppEngine(waitMs = 5500) {
     });
   }
 
+  if (st.isConnected) {
+    await processCloudOutboundQueue();
+  }
+
   return await persistStatusToDb();
+}
+
+function resolveCloudTargetToJid(targetStr: string): string | null {
+  const raw = String(targetStr || "").trim();
+  if (!raw) return null;
+  if (raw.endsWith("@g.us") || raw.endsWith("@s.whatsapp.net") || raw.endsWith("@lid")) {
+    return raw;
+  }
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  return `${digits}@s.whatsapp.net`;
+}
+
+/**
+ * Drains WA_OUTBOUND_QUEUE from the cloud engine when no dedicated worker has drained it.
+ */
+export async function processCloudOutboundQueue() {
+  const st = getCloudState();
+  if (!st.sock || !st.isConnected) return;
+
+  try {
+    const row = await db.systemSetting.findUnique({
+      where: { key: "WA_OUTBOUND_QUEUE" },
+    });
+    if (!row?.value) return;
+
+    let queue: Array<{ id: string; target: string; text: string }> = [];
+    try {
+      queue = JSON.parse(row.value);
+    } catch {}
+    if (!Array.isArray(queue) || queue.length === 0) return;
+
+    await db.systemSetting.update({
+      where: { key: "WA_OUTBOUND_QUEUE" },
+      data: { value: "[]" },
+    });
+
+    for (const item of queue) {
+      try {
+        const jid = resolveCloudTargetToJid(item.target);
+        if (!jid) continue;
+        const sent = await st.sock.sendMessage(jid, { text: item.text });
+        if (sent?.key?.id) st.processedMsgIds.add(sent.key.id);
+        addCloudLog(`📤 Aviso enviado en la nube a [${item.target}]`);
+      } catch (err: any) {
+        addCloudLog(`⚠️ Error enviando aviso en la nube a [${item.target}]: ${err?.message}`);
+      }
+    }
+    await persistStatusToDb();
+  } catch {}
 }
 
 /**
