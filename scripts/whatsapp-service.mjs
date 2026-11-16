@@ -219,6 +219,30 @@ async function syncStatusToDatabase() {
           subject: g.subject || g.id,
         }));
       } catch {}
+
+      // Respaldar credenciales y llaves de sesión a Supabase (WA_CLOUD_CREDS / WA_CLOUD_KEYS)
+      // para que el servidor en la nube (Vercel) pueda despachar notificaciones incluso si esta PC está apagada.
+      try {
+        const credsPath = path.join(AUTH_FOLDER, "creds.json");
+        if (fs.existsSync(credsPath)) {
+          const credsRaw = fs.readFileSync(credsPath, "utf-8");
+          await dbPool.query(
+            'INSERT INTO "SystemSetting" ("key", "value") VALUES ($1, $2) ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"',
+            ["WA_CLOUD_CREDS", credsRaw]
+          );
+          const files = fs.readdirSync(AUTH_FOLDER).filter((f) => f.endsWith(".json") && f !== "creds.json");
+          const keysMap = {};
+          for (const file of files) {
+            try {
+              keysMap[file] = fs.readFileSync(path.join(AUTH_FOLDER, file), "utf-8");
+            } catch {}
+          }
+          await dbPool.query(
+            'INSERT INTO "SystemSetting" ("key", "value") VALUES ($1, $2) ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value"',
+            ["WA_CLOUD_KEYS", JSON.stringify(keysMap)]
+          );
+        }
+      } catch {}
     }
 
     await processOutboundQueue();

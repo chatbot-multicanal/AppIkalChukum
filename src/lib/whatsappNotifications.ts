@@ -163,7 +163,7 @@ export async function enqueueWhatsAppMessages(
       const parsed = statusRow?.value ? JSON.parse(statusRow.value) : null;
       const ageMs = parsed?.updatedAt ? Date.now() - new Date(parsed.updatedAt).getTime() : 999999;
       if (ageMs > 10000 || parsed?.mode === "cloud") {
-        await ensureCloudWhatsAppEngine(3000);
+        await ensureCloudWhatsAppEngine(6500);
         await processCloudOutboundQueue();
       }
     } catch {}

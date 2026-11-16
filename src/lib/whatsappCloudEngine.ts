@@ -172,7 +172,13 @@ async function useDatabaseAuthState() {
         get: async <T extends keyof SignalDataTypeMap>(type: T, ids: string[]) => {
           const data: { [id: string]: SignalDataTypeMap[T] } = {};
           for (const id of ids) {
-            let value = keysStore[`${type}-${id}`];
+            const fileKey = fixKeyFileName(`${type}-${id}.json`);
+            let value = keysStore[fileKey] ?? keysStore[`${type}-${id}`];
+            if (typeof value === "string") {
+              try {
+                value = JSON.parse(value, BufferJSON.reviver);
+              } catch {}
+            }
             if (type === "app-state-sync-key" && value) {
               value = proto.Message.AppStateSyncKeyData.fromObject(value);
             }
@@ -186,11 +192,12 @@ async function useDatabaseAuthState() {
           for (const category in data) {
             for (const id in data[category]) {
               const value = data[category][id];
-              const key = `${category}-${id}`;
+              const fileKey = fixKeyFileName(`${category}-${id}.json`);
               if (value) {
-                keysStore[key] = value;
+                keysStore[fileKey] = value;
               } else {
-                delete keysStore[key];
+                delete keysStore[fileKey];
+                delete keysStore[`${category}-${id}`];
               }
             }
           }
@@ -204,6 +211,8 @@ async function useDatabaseAuthState() {
     saveCreds,
   };
 }
+
+const fixKeyFileName = (file: string) => file?.replace(/\//g, "__")?.replace(/:/g, "-");
 
 export async function clearDatabaseAuthState() {
   try {
