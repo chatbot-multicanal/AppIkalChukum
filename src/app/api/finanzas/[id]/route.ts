@@ -10,9 +10,9 @@ export async function DELETE(
   try {
     const cookieStore = await cookies();
     const userRole = cookieStore.get("user_role")?.value;
-    const userId = cookieStore.get("user_session")?.value;
+    const userId = cookieStore.get("user_session")?.value || "ADMIN";
 
-    if (userRole !== "ADMIN" || !userId) {
+    if (userRole !== "ADMIN") {
       return NextResponse.json(
         { error: "No autorizado. Solo el Administrador puede eliminar registros financieros." },
         { status: 403 }

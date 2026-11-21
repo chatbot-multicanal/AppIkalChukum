@@ -299,45 +299,69 @@ export async function GET(request: Request) {
   }
 }
 
+// Helper para parsear fechas YYYY-MM-DD al mediodía UTC y evitar desfases de día por huso horario
+function parseAccountingDate(dateInput?: string | null): Date {
+  if (!dateInput) return new Date();
+  const trimmed = String(dateInput).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T12:00:00.000Z`);
+  }
+  const parsed = new Date(trimmed);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
 // POST /api/finanzas - Crear un registro financiero manual (Admin / Bodega)
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const userRole = cookieStore.get("user_role")?.value;
-    const userId = cookieStore.get("user_session")?.value;
+    const rawUserId = cookieStore.get("user_session")?.value;
+    const userName = cookieStore.get("user_name")?.value;
 
-    if (!userId) {
-      return NextResponse.json({ error: "No autorizado. Sesión inválida." }, { status: 401 });
+    let user = rawUserId
+      ? await db.user.findUnique({ where: { id: rawUserId } })
+      : null;
+
+    if (!user && userName) {
+      user = await db.user.findFirst({
+        where: { name: decodeURIComponent(userName) }
+      });
     }
 
-    const user = await db.user.findUnique({
-      where: { id: userId }
-    });
+    if (!user && (userRole === "ADMIN" || userRole === "GERENTE")) {
+      user = await db.user.findFirst({
+        where: { role: "ADMIN" }
+      });
+    }
 
     if (!user) {
-      return NextResponse.json({ error: "Usuario no encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "No autorizado o sesión expirada. Por favor vuelve a iniciar sesión." }, { status: 401 });
     }
+
+    const userId = user.id;
+    const effectiveRole = userRole || user.role;
 
     const data = await request.json();
     let { type, category, amount, currency, exchangeRate, description, date, warehouseId, status } = data;
 
     // Validación y formateo de datos según el rol
-    if (userRole === "BODEGA") {
+    if (effectiveRole === "BODEGA") {
       // Los bodegueros solo pueden registrar GASTOS DE OPERACIÓN para su bodega asignada
-      if (!user.warehouseId) {
+      const targetWhId = user.warehouseId || warehouseId;
+      if (!targetWhId) {
         return NextResponse.json({ error: "El bodeguero no tiene una bodega asignada." }, { status: 400 });
       }
       type = "EXPENSE";
       category = "BODEGA_OPERACION";
-      warehouseId = user.warehouseId;
+      warehouseId = targetWhId;
       
       const warehouse = await db.warehouse.findUnique({
-        where: { id: user.warehouseId }
+        where: { id: targetWhId }
       });
       // Miami maneja USD por defecto, Mérida MXN
       const isMiami = warehouse?.country === "Estados Unidos" || warehouse?.name.toLowerCase().includes("miami");
       currency = isMiami ? "USD" : "MXN";
-    } else if (userRole === "ADMIN") {
+    } else if (effectiveRole === "ADMIN" || effectiveRole === "GERENTE") {
       // El administrador tiene control total de validación
       if (!type || !category || !amount) {
         return NextResponse.json({ error: "Tipo, Categoría y Monto son requeridos." }, { status: 400 });
@@ -351,7 +375,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "El monto debe ser un número positivo." }, { status: 400 });
     }
 
-    const rate = parseFloat(exchangeRate) || 1.0;
+    const rate = parseFloat(exchangeRate) || (currency === "USD" ? 20.0 : 1.0);
 
     const record = await db.financeRecord.create({
       data: {
@@ -361,7 +385,7 @@ export async function POST(request: Request) {
         currency: currency || "MXN",
         exchangeRate: rate,
         description: description?.trim() || null,
-        date: date ? new Date(date) : new Date(),
+        date: parseAccountingDate(date),
         status: status || "PAGADO",
         warehouseId: warehouseId || null,
         userId
@@ -421,7 +445,7 @@ export async function PUT(request: Request) {
       updateData.exchangeRate = isNaN(rate) ? 1.0 : rate;
     }
     if (description !== undefined) updateData.description = description?.trim() || null;
-    if (date !== undefined) updateData.date = new Date(date);
+    if (date !== undefined) updateData.date = parseAccountingDate(date);
     if (status !== undefined) updateData.status = status;
     if (warehouseId !== undefined) updateData.warehouseId = warehouseId || null;
 

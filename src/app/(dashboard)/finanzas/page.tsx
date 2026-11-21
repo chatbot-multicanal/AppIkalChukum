@@ -105,16 +105,19 @@ export default function FinanzasPage() {
 
   const openModal = () => {
     setEditingRecordId(null);
+    const defaultWhId = selectedWarehouse === "ALL" || selectedWarehouse === "GLOBAL" ? "" : selectedWarehouse;
+    const matchedWh = warehouses.find(w => w.id === defaultWhId);
+    const isMiamiWh = matchedWh?.name?.toLowerCase().includes("miami");
     setFormData({
       type: "EXPENSE",
       category: "RENTA",
       amount: "",
-      currency: "MXN",
-      exchangeRate: "1.0",
+      currency: isMiamiWh ? "USD" : "MXN",
+      exchangeRate: isMiamiWh ? "20.0" : "1.0",
       description: "",
       date: new Date().toISOString().split("T")[0],
       status: "PAGADO",
-      warehouseId: selectedWarehouse === "ALL" || selectedWarehouse === "GLOBAL" ? "" : selectedWarehouse
+      warehouseId: defaultWhId
     });
     setShowModal(true);
   };
@@ -287,6 +290,21 @@ export default function FinanzasPage() {
       // Ajustar tipo de cambio automático según moneda
       if (name === "currency") {
         updated.exchangeRate = value === "MXN" ? "1.0" : "20.0";
+      }
+      // Si cambia la bodega asociada a Miami, sugerir USD automáticamente
+      if (name === "warehouseId") {
+        const wh = warehouses.find(w => w.id === value);
+        if (wh?.name?.toLowerCase().includes("miami")) {
+          updated.currency = "USD";
+          updated.exchangeRate = "20.0";
+        } else if (wh) {
+          updated.currency = "MXN";
+          updated.exchangeRate = "1.0";
+        }
+      }
+      // Si cambia el tipo entre EXPENSE e INCOME, asegurar una categoría válida
+      if (name === "type") {
+        updated.category = value === "EXPENSE" ? "RENTA" : "OTROS";
       }
       return updated;
     });
@@ -940,14 +958,16 @@ export default function FinanzasPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          backdropFilter: "blur(5px)",
+          backgroundColor: "rgba(0,0,0,0.7)",
+          backdropFilter: "blur(6px)",
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          zIndex: 1000
+          zIndex: 9999,
+          padding: "16px",
+          overflowY: "auto"
         }}>
-          <div className="glass-card animate-scale-in" style={{ width: "90%", maxWidth: "520px", padding: "30px", position: "relative" }}>
+          <div className="glass-card" style={{ width: "100%", maxWidth: "520px", maxHeight: "90vh", overflowY: "auto", padding: "28px", position: "relative", backgroundColor: "#141920", border: "1px solid rgba(45, 212, 191, 0.3)" }}>
             <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "white", marginBottom: "20px", borderBottom: "1px solid var(--border-color)", paddingBottom: "12px" }}>
               {editingRecordId ? "Editar Movimiento Financiero" : "Registrar Movimiento Financiero"}
             </h3>
